@@ -41,7 +41,7 @@ pub fn mac_tag(k_f: (Scalar, Scalar), msg: &[u8]) -> RistrettoPoint {
 
     // g^(x0 + x1 * H(m))
     let exp = x0 + (x1 * h_m);
-    let t = &exp * &RISTRETTO_BASEPOINT_TABLE;
+    let t = &exp * RISTRETTO_BASEPOINT_TABLE;
 
     t
 }
