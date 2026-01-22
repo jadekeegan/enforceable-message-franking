@@ -12,10 +12,7 @@ use sha2::{Digest, Sha256};
 /// # Returns
 /// * `SigningKey` - Moderator Signing Key
 pub fn moderator_keygen() -> SigningKey {
-    let mut rng = OsRng;
-    let signing_key = SigningKey::generate(&mut rng);
-
-    signing_key
+    SigningKey::generate(&mut OsRng)
 }
 
 // SHA-256 Hash Function

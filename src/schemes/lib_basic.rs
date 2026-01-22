@@ -17,6 +17,7 @@ pub struct Moderator {
 // Chapter 19 Boneh Shoup for Proof, 19.5.3
 
 // Moderator Implementation
+#[allow(clippy::new_without_default)] // avoid default since keygen is expensive
 impl Moderator {
     // KeyGenMod(1^lambda)
     pub fn new() -> Self {
