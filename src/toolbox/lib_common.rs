@@ -25,6 +25,18 @@ pub fn moderator_keygen() -> SigningKey {
     SigningKey::generate(&mut OsRng)
 }
 
+// User Key Generation
+/// Generates a user secret key as a random scalar.
+///
+/// # Arguments
+/// * None
+///
+/// # Returns
+/// * `Scalar` - User Secret Key
+pub fn user_keygen() -> Scalar {
+    Scalar::random(&mut OsRng)
+}
+
 // Generate User ID
 /// Generates a random 32-byte user identifier.
 ///
@@ -44,13 +56,15 @@ pub fn generate_user_id() -> [u8; 32] {
 /// Computes SHA-256 hash and returns the hash as a byte array.
 ///
 /// # Arguments
-/// * `data` - Input data to be hashed
+/// * `m` - Message
+/// * `ctx` - Message Context
 ///
 /// # Returns
 /// * `[u8; 32]` - SHA-256 hash of the input data as a 32-byte array
-pub fn sha256_hash(data: &[u8]) -> [u8; 32] {
+pub fn sha256_hash(m: &[u8], ctx: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
-    hasher.update(data);
+    hasher.update(m);
+    hasher.update(ctx);
     let res = hasher.finalize();
 
     // Converts GenericArray to [u8; 32] safely since SHA-256 always produces 32 bytes

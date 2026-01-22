@@ -1,6 +1,8 @@
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_ggm::*;
 
+use aes_gcm::aead::rand_core::le;
+use curve25519_dalek::Scalar;
 // Ristretto
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::RistrettoPoint;
@@ -69,25 +71,39 @@ impl Moderator {
     /// * `t_expiry` - Signature Expiry Time
     /// * `m` - Message to be Verified
     /// * `ctx` - Message Context
-    /// * `T` - Mac Tag
+    /// * `t` - Mac Tag
     ///
     /// # Returns
     /// * `bool` - indicating validity (true) or invalidity (false)
-    pub fn moderate() {
-        unimplemented!()
+    pub fn moderate(
+        k_f: FrankingKey,
+        t_expiry: u64,
+        m: &[u8],
+        ctx: &[u8],
+        t: RistrettoPoint,
+    ) -> bool {
+        // TODO: Replace t with actual value from ctx once scheme has been updated.
+        let msg_timestamp: u64 = 0;
+        let is_time_valid = msg_timestamp < t_expiry;
+
+        let is_sig_valid = mac_verify(&k_f, m, ctx, &t);
+
+        is_time_valid && is_sig_valid
     }
 }
 
 // TODO: Client Properties
 pub struct Client {
-    // Empty for now
+    sk: Scalar, // User Secret Key
 }
 
 // Client Implementation
+#[allow(clippy::new_without_default)] // avoid default since keygen is expensive
 impl Client {
     // KeyGenUser(1^lambda)
     pub fn new() -> Self {
-        Client {}
+        let sk = user_keygen();
+        Client { sk }
     }
 
     // TODO: SessionInit Function
