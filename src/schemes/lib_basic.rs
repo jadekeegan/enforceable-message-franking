@@ -55,11 +55,11 @@ impl Moderator {
         // Public Key Generation (g^x0, g^x1)
         let k_pub = compute_public_key(&k_f);
 
-        // Serialize registration data
+        // Serialize registration data (id || k_pub || t_expiry)
         let msg: [u8; REGISTRATION_SERIALIZATION_LEN] =
             serialize_registration(id, &k_pub, t_expiry);
 
-        // Signature over (id || k_pub || t_expiry)
+        // Signature over registration data
         let sig = self.sk.sign(&msg);
 
         (k_f, k_pub, sig)
@@ -71,24 +71,23 @@ impl Moderator {
     /// # Arguments
     /// * `k_f` - Franking Key
     /// * `t_expiry` - Signature Expiry Time
+    /// * `id` - User Identifier
     /// * `m` - Message to be Verified
-    /// * `ctx` - Message Context
-    /// * `t` - Mac Tag
+    /// * `t_msg` - Message Timestamp
+    /// * `tag` - Mac Tag
     ///
     /// # Returns
     /// * `bool` - indicating validity (true) or invalidity (false)
     pub fn moderate(
         k_f: &FrankingKey,
         t_expiry: u64,
+        id: &[u8; 32],
         m: &[u8],
-        ctx: &[u8],
-        t: &RistrettoPoint,
+        t_msg: u64,
+        tag: &RistrettoPoint,
     ) -> bool {
-        // TODO: Replace t with actual value from ctx once scheme has been updated.
-        let msg_timestamp: u64 = 0;
-        let is_time_valid = msg_timestamp < t_expiry;
-
-        let is_sig_valid = mac_verify(k_f, m, ctx, t);
+        let is_time_valid = t_msg < t_expiry;
+        let is_sig_valid = mac_verify(k_f, id, m, t_msg, tag);
 
         is_time_valid && is_sig_valid
     }

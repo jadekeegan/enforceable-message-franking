@@ -4,7 +4,6 @@ use ed25519_dalek::SigningKey;
 
 use rand::RngCore;
 use rand::rngs::OsRng;
-use sha2::{Digest, Sha256};
 
 // Type Definitions
 // Q: Is it fine to pass around these as tuples?
@@ -69,26 +68,6 @@ pub fn generate_user_id() -> [u8; 32] {
     OsRng.fill_bytes(&mut id);
 
     id
-}
-
-// TODO: Rework this function a bit since it's specific to MAC scheme
-// SHA-256 Hash Function
-/// Computes SHA-256 hash and returns the hash as a byte array.
-///
-/// # Arguments
-/// * `m` - Message
-/// * `ctx` - Message Context
-///
-/// # Returns
-/// * `[u8; 32]` - SHA-256 hash of the input data as a 32-byte array
-pub fn sha256_hash(m: &[u8], ctx: &[u8]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    hasher.update(m);
-    hasher.update(ctx);
-    let res = hasher.finalize();
-
-    // Converts GenericArray to [u8; 32] safely since SHA-256 always produces 32 bytes
-    res.into()
 }
 
 // Serialize User Registration Data
