@@ -6,7 +6,7 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::ristretto::RistrettoPoint;
 
 // Signature
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 
 // Moderator Properties
 pub struct Moderator {
@@ -41,24 +41,24 @@ impl Moderator {
     /// * `k_f` - Franking Key
     /// * `k_pub` - Public Key
     /// * `sig` - Moderator Signature on User Registration
-    pub fn register_user(
-        &self,
-        id: &Vec<u8>,
-        t_expiry: u64,
-    ) -> ([u8; 64], RistrettoPoint, Vec<u8>) {
+    pub fn register_user(&self, id: &[u8; 32], t_expiry: u64) -> (FrankingKey, PublicKey, Vec<u8>) {
+        // Franking Key Generation (x0, x1)
         let k_f = mac_keygen();
         let (x0, x1) = k_f;
 
+        // Public Key Generation (g^x0, g^x1)
         let g0: RistrettoPoint = &x0 * RISTRETTO_BASEPOINT_TABLE;
         let g1: RistrettoPoint = &x1 * RISTRETTO_BASEPOINT_TABLE;
-
         let k_pub = (g0, g1);
 
-        let mut msg: Vec<u8> = Vec::new();
-        // Q: Recommended serialization method?
-        // serialize each component separately and put into allocated array with fixed size
+        // Serialize registration data
+        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] =
+            serialize_registration(id, &k_pub, t_expiry);
 
-        unimplemented!()
+        // Signature over (id || k_pub || t_expiry)
+        let sig = self.sk.sign(&msg).to_bytes().to_vec();
+
+        (k_f, k_pub, sig)
     }
 
     // TODO: Moderate Function

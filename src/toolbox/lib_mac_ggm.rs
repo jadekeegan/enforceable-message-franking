@@ -1,4 +1,4 @@
-use crate::toolbox::lib_common::sha256_hash;
+use crate::toolbox::lib_common::{FrankingKey, sha256_hash};
 
 use rand::rngs::OsRng;
 
@@ -12,8 +12,8 @@ use curve25519_dalek::scalar::Scalar;
 /// * None
 ///
 /// # Returns
-/// * `(Scalar, Scalar)` - Franking Key (x0, x1)
-pub fn mac_keygen() -> (Scalar, Scalar) {
+/// * `FrankingKey` - Franking Key (x0, x1)
+pub fn mac_keygen() -> FrankingKey {
     let mut rng = OsRng;
     let x0 = Scalar::random(&mut rng);
     let x1 = Scalar::random(&mut rng);
@@ -29,7 +29,7 @@ pub fn mac_keygen() -> (Scalar, Scalar) {
 ///
 /// # Returns
 /// * `RistrettoPoint` - MAC Tag t
-pub fn mac_tag(k_f: (Scalar, Scalar), msg: &[u8]) -> RistrettoPoint {
+pub fn mac_tag(k_f: FrankingKey, msg: &[u8]) -> RistrettoPoint {
     // Unpack franking key
     let (x0, x1) = k_f;
 
