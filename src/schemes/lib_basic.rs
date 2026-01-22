@@ -1,14 +1,14 @@
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_ggm::*;
 
-use aes_gcm::aead::rand_core::le;
-use curve25519_dalek::Scalar;
 // Ristretto
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::{RistrettoPoint, Scalar};
 
+use ed25519_dalek::Signature;
 // Signature
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
+use signature::Verifier;
 
 // Moderator Properties
 pub struct Moderator {
@@ -27,11 +27,12 @@ impl Moderator {
         Moderator { sk: signing_key }
     }
 
+    // Get Moderator Public Key
     pub fn get_pk(&self) -> VerifyingKey {
         self.sk.verifying_key()
     }
 
-    // TODO: Register User Function
+    // Register User Function
     /// Registers a user with the moderator.
     ///
     /// # Arguments
@@ -43,27 +44,28 @@ impl Moderator {
     /// * `k_f` - Franking Key
     /// * `k_pub` - Public Key
     /// * `sig` - Moderator Signature on User Registration
-    pub fn register_user(&self, id: &[u8; 32], t_expiry: u64) -> (FrankingKey, PublicKey, Vec<u8>) {
+    pub fn register_user(
+        &self,
+        id: &[u8; 32],
+        t_expiry: u64,
+    ) -> (FrankingKey, PublicKey, Signature) {
         // Franking Key Generation (x0, x1)
         let k_f = mac_keygen();
-        let (x0, x1) = k_f;
 
         // Public Key Generation (g^x0, g^x1)
-        let g0: RistrettoPoint = &x0 * RISTRETTO_BASEPOINT_TABLE;
-        let g1: RistrettoPoint = &x1 * RISTRETTO_BASEPOINT_TABLE;
-        let k_pub = (g0, g1);
+        let k_pub = compute_public_key(&k_f);
 
         // Serialize registration data
         let msg: [u8; REGISTRATION_SERIALIZATION_LEN] =
             serialize_registration(id, &k_pub, t_expiry);
 
         // Signature over (id || k_pub || t_expiry)
-        let sig = self.sk.sign(&msg).to_bytes().to_vec();
+        let sig = self.sk.sign(&msg);
 
         (k_f, k_pub, sig)
     }
 
-    // TODO: Moderate Function
+    // Moderate Function
     /// Verifies that a message has been properly franked.
     ///
     /// # Arguments
@@ -76,17 +78,17 @@ impl Moderator {
     /// # Returns
     /// * `bool` - indicating validity (true) or invalidity (false)
     pub fn moderate(
-        k_f: FrankingKey,
+        k_f: &FrankingKey,
         t_expiry: u64,
         m: &[u8],
         ctx: &[u8],
-        t: RistrettoPoint,
+        t: &RistrettoPoint,
     ) -> bool {
         // TODO: Replace t with actual value from ctx once scheme has been updated.
         let msg_timestamp: u64 = 0;
         let is_time_valid = msg_timestamp < t_expiry;
 
-        let is_sig_valid = mac_verify(&k_f, m, ctx, &t);
+        let is_sig_valid = mac_verify(k_f, m, ctx, t);
 
         is_time_valid && is_sig_valid
     }
@@ -106,20 +108,41 @@ impl Client {
         Client { sk }
     }
 
+    // Get User Public Key (g^sk)
+    pub fn get_pk(&self) -> RistrettoPoint {
+        &self.sk * RISTRETTO_BASEPOINT_TABLE
+    }
+
     // TODO: SessionInit Function
     /// Initializes a session for the user.
     ///
     /// # Arguments
-    /// * `pk_M` - Moderator Public Key
-    /// * `id_U` - User Identifier
+    /// * `pk_m` - Moderator Public Key
+    /// * `id` - User Identifier
     /// * `k_f` - Franking Key
+    /// * `k_pub` - Public Key
     /// * `t_expiry` - Signature Expiry Time
     /// * `sig` - Moderator Signature on User Registration
     ///
     /// # Returns
     /// * `bool` - indicating success (true) or failure (false)
-    pub fn session_init() {
-        unimplemented!()
+    pub fn session_init(
+        pk_m: &VerifyingKey,
+        id: &[u8; 32],
+        k_f: &FrankingKey,
+        k_pub: &PublicKey,
+        t_expiry: u64,
+        sig: &Signature,
+    ) -> bool {
+        // Verify FrankingKey and PublicKey
+        let computed_k_pub = compute_public_key(k_f);
+        let is_k_pub_valid = k_pub == &computed_k_pub;
+
+        // Serialize message registration data and verify signature
+        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
+        let is_sig_valid = pk_m.verify(&msg, sig).is_ok();
+
+        is_k_pub_valid && is_sig_valid
     }
 
     // TODO: Maybe make a FrankData struct?

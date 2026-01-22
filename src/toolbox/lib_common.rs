@@ -1,3 +1,4 @@
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::SigningKey;
 
@@ -6,6 +7,7 @@ use rand::rngs::OsRng;
 use sha2::{Digest, Sha256};
 
 // Type Definitions
+// Q: Is it fine to pass around these as tuples?
 pub type FrankingKey = (Scalar, Scalar);
 pub type PublicKey = (RistrettoPoint, RistrettoPoint);
 
@@ -37,6 +39,23 @@ pub fn user_keygen() -> Scalar {
     Scalar::random(&mut OsRng)
 }
 
+// Compute Public Key from Franking Key
+/// Computes the public key corresponding to the given franking key.
+///
+/// # Arguments
+/// * `k_f` - Franking Key (x0, x1)
+///
+/// # Returns
+/// * `PublicKey` - Public Key (g0, g1)
+pub fn compute_public_key(k_f: &FrankingKey) -> PublicKey {
+    let (x0, x1) = k_f;
+
+    let g0: RistrettoPoint = x0 * RISTRETTO_BASEPOINT_TABLE;
+    let g1: RistrettoPoint = x1 * RISTRETTO_BASEPOINT_TABLE;
+
+    (g0, g1)
+}
+
 // Generate User ID
 /// Generates a random 32-byte user identifier.
 ///
@@ -52,6 +71,7 @@ pub fn generate_user_id() -> [u8; 32] {
     id
 }
 
+// TODO: Rework this function a bit since it's specific to MAC scheme
 // SHA-256 Hash Function
 /// Computes SHA-256 hash and returns the hash as a byte array.
 ///
