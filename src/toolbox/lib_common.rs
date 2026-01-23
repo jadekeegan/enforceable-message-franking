@@ -9,6 +9,13 @@ use rand::rngs::OsRng;
 // Q: Is it fine to pass around these as tuples?
 pub type FrankingKey = (Scalar, Scalar);
 pub type PublicKey = (RistrettoPoint, RistrettoPoint);
+pub type FrankingData = (
+    PublicKey,
+    RistrettoPoint,
+    RistrettoPoint,
+    RistrettoPoint,
+    (),
+);
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
@@ -99,4 +106,56 @@ pub fn serialize_registration(
     msg[96..104].copy_from_slice(&t_expiry.to_le_bytes());
 
     msg
+}
+
+// TODO: ZK.Prove, ZK.Verify
+// Chapter 19 Boneh Shoup for Proof, 19.5.3
+// ZK Proof of Knowledge of MAC Tag
+/// Generates a zero-knowledge proof for mac tag.
+///
+/// # Arguments
+/// * `r` - Ristretto Point R
+/// * `k_f` - Franking Key
+/// * `(k_pub, tag)` - Public Key and MAC Tag
+/// * `m` - Message
+/// * `id` - User Identifier
+/// * `t_msg` - Message Timestamp
+pub fn zk_prove(
+    r: &RistrettoPoint,
+    k_f: &FrankingKey,
+    k_pub: &PublicKey,
+    tag: &RistrettoPoint,
+    m: &[u8],
+    id: &[u8; 32],
+    t_msg: u64,
+) -> () {
+    unimplemented!()
+}
+
+// ZK Proof Verification
+/// Verifies the zero-knowledge proof for mac tag.
+///
+/// # Arguments
+/// * `r` - Ristretto Point R
+/// * `k_pub` - Public Key
+/// * `pk_r` - Recipient's Public Key
+/// * `tag` - MAC Tag
+/// * `m` - Message
+/// * `id` - User Identifier
+/// * `t_msg` - Message Timestamp
+/// * `pi` - ZK Proof
+///
+/// # Returns
+/// * `bool` - indicating validity (true) or invalidity (false)
+pub fn zk_verify(
+    r: &RistrettoPoint,
+    k_pub: &PublicKey,
+    pk_r: &RistrettoPoint,
+    tag: &RistrettoPoint,
+    m: &[u8],
+    id: &[u8; 32],
+    t_msg: u64,
+    pi: &(),
+) -> bool {
+    unimplemented!()
 }

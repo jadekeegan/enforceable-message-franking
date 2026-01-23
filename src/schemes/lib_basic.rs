@@ -8,15 +8,14 @@ use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::Signature;
 // Signature
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
+use rand::rngs::OsRng;
 use signature::Verifier;
 
 // Moderator Properties
 pub struct Moderator {
-    sk: SigningKey, // Moderator Secret Key
+    pub pk: VerifyingKey, // Moderator Public Key
+    sk: SigningKey,       // Moderator Secret Key
 }
-
-// TODO: ZK.Prove, ZK.Verify
-// Chapter 19 Boneh Shoup for Proof, 19.5.3
 
 // Moderator Implementation
 #[allow(clippy::new_without_default)] // avoid default since keygen is expensive
@@ -24,12 +23,11 @@ impl Moderator {
     // KeyGenMod(1^lambda)
     pub fn new() -> Self {
         let signing_key = moderator_keygen();
-        Moderator { sk: signing_key }
-    }
-
-    // Get Moderator Public Key
-    pub fn get_pk(&self) -> VerifyingKey {
-        self.sk.verifying_key()
+        let verifying_key = signing_key.verifying_key();
+        Moderator {
+            pk: verifying_key,
+            sk: signing_key,
+        }
     }
 
     // Register User Function
@@ -93,9 +91,10 @@ impl Moderator {
     }
 }
 
-// TODO: Client Properties
+// Client Properties
 pub struct Client {
-    sk: Scalar, // User Secret Key
+    pub pk: RistrettoPoint, // User Public Key (g^sk)
+    sk: Scalar,             // User Secret Key
 }
 
 // Client Implementation
@@ -104,15 +103,11 @@ impl Client {
     // KeyGenUser(1^lambda)
     pub fn new() -> Self {
         let sk = user_keygen();
-        Client { sk }
+        let pk = &sk * RISTRETTO_BASEPOINT_TABLE;
+        Client { pk, sk }
     }
 
-    // Get User Public Key (g^sk)
-    pub fn get_pk(&self) -> RistrettoPoint {
-        &self.sk * RISTRETTO_BASEPOINT_TABLE
-    }
-
-    // TODO: SessionInit Function
+    // SessionInit Function
     /// Initializes a session for the user.
     ///
     /// # Arguments
@@ -144,53 +139,108 @@ impl Client {
         is_k_pub_valid && is_sig_valid
     }
 
-    // TODO: Maybe make a FrankData struct?
-    // Should have (k_pub, R, E_r, T, pi)
-
-    // TODO: Frank Function
+    // Frank Function
     /// Generates franking data for a message.
     ///
     /// # Arguments
-    /// * `m` - Message to be Franked
+    ///
+    /// * `pk_m` - Moderator Public Key
+    /// * `pk_r` - Recipient Public Key
     /// * `k_f` - Franking Key
     /// * `k_pub` - Public Key
-    /// * `ctx` - Message Context
+    /// * `id` - User Identifier
+    /// * `m` - Message to be Franked
+    /// * `t_msg` - Message Timestamp
     ///
     /// # Returns
     /// * `FrankData` - contains the Franking AD
-    pub fn frank() {
-        unimplemented!()
+    pub fn frank(
+        // pk_m: &VerifyingKey,
+        pk_r: &RistrettoPoint,
+        k_f: &FrankingKey,
+        k_pub: &PublicKey,
+        id: &[u8; 32],
+        m: &[u8],
+        t_msg: u64,
+    ) -> FrankingData {
+        // Generate Random Scalar Alpha
+        let alpha = Scalar::random(&mut OsRng);
+
+        // Compute R (pk_r)^alpha
+        let r = alpha * pk_r;
+
+        // Compute E_r = g^alpha
+        let e_r = &alpha * RISTRETTO_BASEPOINT_TABLE;
+
+        // Compute MAC Tag t
+        let tag = mac_tag(k_f, id, m, t_msg);
+
+        // Compute proof pi
+        let pi = zk_prove(&r, k_f, k_pub, &tag, m, id, t_msg);
+
+        // Return Franking Data
+        // Q: Is it better to allocate an array for this instead of doing a tuple?
+        (*k_pub, r, e_r, tag, pi)
     }
 
     // TODO: AcceptSession Function
     /// Determines if another user's session should be accepted.
     ///
     /// # Arguments
-    /// * `pk_M` - Moderator Public Key
-    /// * `k_pub_U` - Other User's Public Key
-    /// * `t_expiry_U` - Other User's Signature Expiry Time
-    /// * `ctx` - Message Context
-    /// * `sig_U` - Other User's Signature
+    /// * `pk_m` - Moderator Public Key
+    /// * `id` - User Identifier
+    /// * `k_pub` - Public Key
+    /// * `t_expiry` - Signature Expiry Time
+    /// * `sig` - Moderator Signature on User Registration
     ///
     /// # Returns
     /// * `bool` - indicating acceptance (true) or rejection (false)
-    pub fn accept_session() {
-        unimplemented!()
+    pub fn accept_session(
+        pk_m: &VerifyingKey,
+        id: &[u8; 32],
+        k_pub: &PublicKey,
+        t_expiry: u64,
+        sig: &Signature,
+    ) -> bool {
+        // Serialize message registration data and verify signature
+        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
+
+        // Verify signature
+        pk_m.verify(&msg, sig).is_ok()
     }
 
     // TODO: Verify Function
     /// Verifies that a message has been properly franked.
     ///
     /// # Arguments
+    /// * `pk_m` - Moderator Public Key
     /// * `pk_R` - Recipient's Public Key
     /// * `sk_R` - Recipient's Secret Key
     /// * `m` - Message to be Verified
-    /// * `ctx` - Message Context
     /// * `ad` - Franking Data
+    /// * `id` - User Identifier
+    /// * `t_msg` - Message Timestamp
+    /// * `t_expiry` - Signature Expiry Time
     ///
     /// # Returns
     /// * `bool` - indicating validity (true) or invalidity (false)
-    pub fn verify() {
-        unimplemented!()
+    pub fn verify(
+        // pk_m: &VerifyingKey,
+        pk_r: &RistrettoPoint,
+        sk_r: &Scalar,
+        m: &[u8],
+        ad: &FrankingData,
+        id: &[u8; 32],
+        t_msg: u64,
+        t_expiry: u64,
+    ) -> bool {
+        let (k_pub, r, e_r, tag, pi) = ad;
+
+        let recomputed_r = sk_r * e_r;
+        let is_r_valid = &recomputed_r == r;
+        let is_t_valid = t_msg < t_expiry;
+        let is_pi_valid = zk_verify(r, k_pub, pk_r, tag, m, id, t_msg, pi);
+
+        is_r_valid && is_t_valid && is_pi_valid
     }
 }
