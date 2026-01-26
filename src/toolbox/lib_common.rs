@@ -1,3 +1,5 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::SigningKey;
@@ -16,10 +18,27 @@ pub type FrankingData = (
     RistrettoPoint,
     (),
 );
+pub type MessageContext = ([u8; 32], u64); // (id, t_msg)
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
 pub const REGISTRATION_SERIALIZATION_LEN: usize = 32 + 32 + 32 + 8;
+
+pub const MSG_SIZE_SCALE: [usize; 1] = [100];
+pub const HOUR_OFFSET: u64 = 3_600; // 1 hour in seconds
+pub const DAY_OFFSET: u64 = 86_400; // 1 day in seconds
+pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
+
+// Compute Timestamps for expiry and message
+/// Returns the current UNIX timestamp in seconds, plus any offset.
+pub fn compute_timestamp(offset_secs: u64) -> u64 {
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+
+    now + offset_secs
+}
 
 // Moderator Key Generation
 /// Generates a moderator signing key.

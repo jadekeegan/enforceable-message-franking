@@ -3,36 +3,6 @@
 version = 4
 
 [[package]]
-name = "FederatedFrankingImpl"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "bincode",
- "clap 4.5.54",
- "criterion 0.4.0",
- "criterion 0.5.1",
- "crypto_box",
- "curve25519-dalek",
- "digest",
- "ed25519-dalek",
- "ff",
- "generic-array 1.3.5",
- "getrandom 0.3.4",
- "group",
- "hmac",
- "lazy_static",
- "rand",
- "rand_chacha 0.9.0",
- "rand_core 0.5.1",
- "serde",
- "sha2",
- "sha3",
- "signature",
- "subtle",
- "typenum",
-]
-
-[[package]]
 name = "aead"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -138,7 +108,7 @@ version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9b39be18770d11421cdb1b9947a45dd3f37e93092cbf377614828a319d5fee8"
 dependencies = [
- "hermit-abi 0.1.19",
+ "hermit-abi",
  "libc",
  "winapi",
 ]
@@ -365,32 +335,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "criterion"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2b12d017a929603d80db1831cd3a24082f8137ce19c69e6447f54f5fc8d692f"
-dependencies = [
- "anes",
- "cast",
- "ciborium",
- "clap 4.5.54",
- "criterion-plot",
- "is-terminal",
- "itertools",
- "num-traits",
- "once_cell",
- "oorandom",
- "plotters",
- "rayon",
- "regex",
- "serde",
- "serde_derive",
- "serde_json",
- "tinytemplate",
- "walkdir",
-]
-
-[[package]]
 name = "criterion-plot"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -563,6 +507,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48c757948c5ede0e46177b7add2e67155f70e33c07fea8284df6576da70b3719"
 
 [[package]]
+name = "federated_franking_impl"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "bincode",
+ "clap 4.5.54",
+ "criterion",
+ "crypto_box",
+ "curve25519-dalek",
+ "digest",
+ "ed25519-dalek",
+ "ff",
+ "generic-array 1.3.5",
+ "getrandom 0.3.4",
+ "group",
+ "hmac",
+ "lazy_static",
+ "rand",
+ "rand_chacha 0.9.0",
+ "rand_core 0.5.1",
+ "serde",
+ "sha2",
+ "sha3",
+ "signature",
+ "subtle",
+ "typenum",
+]
+
+[[package]]
 name = "ff"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -683,12 +656,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hermit-abi"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fc0fef456e4baa96da950455cd02c081ca953b141298e41db3fc7e36b1da849c"
-
-[[package]]
 name = "hmac"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -714,17 +681,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
 dependencies = [
  "generic-array 0.14.7",
-]
-
-[[package]]
-name = "is-terminal"
-version = "0.4.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3640c1c38b8e4e43584d8df18be5fc6b0aa314ce6ebf51b53313d4306cca8e46"
-dependencies = [
- "hermit-abi 0.5.2",
- "libc",
- "windows-sys",
 ]
 
 [[package]]
