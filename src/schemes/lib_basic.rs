@@ -1,8 +1,9 @@
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_ggm::*;
+use crate::toolbox::lib_zkpok::*;
 
 // Ristretto
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 
 use ed25519_dalek::Signature;
@@ -83,14 +84,14 @@ impl Moderator {
         k_f: &FrankingKey,
         t_expiry: u64,
         m: &[u8],
-        ctx: &MessageContext,
+        ctx: MessageContext,
         tag: &RistrettoPoint,
     ) -> bool {
         // Unpack context
         let (id, t_msg) = ctx;
 
-        let is_time_valid = *t_msg < t_expiry;
-        let is_sig_valid = mac_verify(k_f, id, m, *t_msg, tag);
+        let is_time_valid = t_msg < t_expiry;
+        let is_sig_valid = mac_verify(k_f, &id, m, t_msg, tag);
 
         is_time_valid && is_sig_valid
     }
@@ -100,7 +101,7 @@ impl Moderator {
 pub struct Client {
     pub id: [u8; 32],       // User Identifier
     pub pk: RistrettoPoint, // User Public Key (g^sk)
-    sk: Scalar,             // User Secret Key
+    _sk: Scalar,            // User Secret Key
 }
 
 // Client Implementation
@@ -109,10 +110,10 @@ impl Client {
     // KeyGenUser(1^lambda)
     pub fn new() -> Self {
         let sk = user_keygen();
-        let pk = &sk * RISTRETTO_BASEPOINT_TABLE;
+        let pk = &sk * G;
         Client {
             pk,
-            sk,
+            _sk: sk,
             id: generate_user_id(),
         }
     }
@@ -199,7 +200,7 @@ impl Client {
         k_f: &FrankingKey,
         k_pub: &PublicKey,
         m: &[u8],
-        ctx: &MessageContext,
+        ctx: MessageContext,
     ) -> FrankingData {
         // Unpack context
         let (id, t_msg) = ctx;
@@ -211,17 +212,23 @@ impl Client {
         let r = alpha * pk_r;
 
         // Compute E_r = g^alpha
-        let e_r = &alpha * RISTRETTO_BASEPOINT_TABLE;
+        let e_r = &alpha * G;
 
         // Compute MAC Tag t
-        let tag = mac_tag(k_f, id, m, *t_msg);
+        let tag = mac_tag(k_f, &id, m, t_msg);
 
         // Compute proof pi
-        let pi = zk_prove(&r, k_f, k_pub, &tag, m, id, *t_msg);
+        let pi = zk_prove(&r, k_f, k_pub, &tag, m, ctx);
 
         // Return Franking Data
         // Q: Is it better to allocate an array for this instead of doing a tuple?
-        (*k_pub, r, e_r, tag, pi)
+        FrankingData {
+            k_pub: *k_pub,
+            r_point: r,
+            e_r,
+            tag,
+            pi,
+        }
     }
 
     // Verify Function
@@ -244,20 +251,26 @@ impl Client {
         // pk_m: &VerifyingKey,
         pk_r: &RistrettoPoint,
         sk_r: &Scalar,
-        m: &[u8],
         ad: &FrankingData,
-        ctx: &MessageContext,
+        m: &[u8],
+        ctx: MessageContext,
         t_expiry: u64,
     ) -> RistrettoPoint {
         // Unpack context
-        let (id, t_msg) = ctx;
+        let (_id, t_msg) = ctx;
 
-        let (k_pub, r, e_r, tag, pi) = ad;
+        let FrankingData {
+            k_pub,
+            r_point,
+            e_r,
+            tag,
+            pi,
+        } = ad;
 
         let recomputed_r = sk_r * e_r;
-        let is_r_valid = &recomputed_r == r;
-        let is_t_valid = *t_msg < t_expiry;
-        let is_pi_valid = zk_verify(r, k_pub, pk_r, tag, m, id, *t_msg, pi);
+        let is_r_valid = &recomputed_r == r_point;
+        let is_t_valid = t_msg < t_expiry;
+        let is_pi_valid = zk_verify(r_point, k_pub, pk_r, tag, m, ctx, pi);
 
         assert!(is_r_valid && is_t_valid && is_pi_valid);
 
@@ -338,5 +351,5 @@ pub fn test_frank_message(
     t_msg: u64,
 ) -> FrankingData {
     let ctx = (client.id, t_msg);
-    client.frank(&receiver.pk, k_f, k_pub, m, &ctx)
+    client.frank(&receiver.pk, k_f, k_pub, m, ctx)
 }

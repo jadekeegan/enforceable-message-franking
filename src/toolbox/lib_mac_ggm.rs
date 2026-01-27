@@ -2,7 +2,7 @@ use crate::toolbox::lib_common::FrankingKey;
 
 use rand::rngs::OsRng;
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
@@ -24,7 +24,7 @@ pub fn mac_keygen() -> FrankingKey {
     (x0, x1)
 }
 
-// SHA-256 Hash Function
+// SHA-256 Hash Function for Message Context
 /// Computes SHA-256 hash and returns the hash as a byte array.
 ///
 /// # Arguments
@@ -34,15 +34,16 @@ pub fn mac_keygen() -> FrankingKey {
 ///
 /// # Returns
 /// * `[u8; 32]` - SHA-256 hash of the input data as a 32-byte array
-pub fn sha256_hash(id: &[u8; 32], m: &[u8], t_msg: u64) -> [u8; 32] {
+pub fn hash_context(id: &[u8; 32], m: &[u8], t_msg: u64) -> Scalar {
     let mut hasher = Sha256::new();
 
     hasher.update(id);
     hasher.update(m);
     hasher.update(t_msg.to_le_bytes());
 
-    // Converts GenericArray to [u8; 32] safely since SHA-256 always produces 32 bytes
-    hasher.finalize().into()
+    let hash_bytes = hasher.finalize();
+
+    Scalar::from_bytes_mod_order(hash_bytes.into())
 }
 
 // MAC Tag Computation
@@ -60,16 +61,13 @@ pub fn mac_tag(k_f: &FrankingKey, id: &[u8; 32], m: &[u8], t_msg: u64) -> Ristre
     // Unpack franking key
     let (x0, x1) = k_f;
 
-    // Hash message
-    let hash_bytes = sha256_hash(id, m, t_msg);
-
-    // Convert hash to Scalar for multiplication with x1
-    let h_m = Scalar::from_bytes_mod_order(hash_bytes);
+    // Hash message context
+    let h_m = hash_context(id, m, t_msg);
 
     // g^(x0 + x1 * H(m))
     let exp = *x0 + (*x1 * h_m);
 
-    &exp * RISTRETTO_BASEPOINT_TABLE
+    &exp * G
 }
 
 // Mac Tag Verification

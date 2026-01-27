@@ -1,24 +1,13 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE;
+use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::SigningKey;
 
 use rand::RngCore;
 use rand::rngs::OsRng;
 
-// Type Definitions
-// Q: Is it fine to pass around these as tuples?
-pub type FrankingKey = (Scalar, Scalar);
-pub type PublicKey = (RistrettoPoint, RistrettoPoint);
-pub type FrankingData = (
-    PublicKey,
-    RistrettoPoint,
-    RistrettoPoint,
-    RistrettoPoint,
-    (),
-);
-pub type MessageContext = ([u8; 32], u64); // (id, t_msg)
+use crate::toolbox::lib_zkpok::ZKProof;
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
@@ -28,6 +17,21 @@ pub const MSG_SIZE_SCALE: [usize; 1] = [100];
 pub const HOUR_OFFSET: u64 = 3_600; // 1 hour in seconds
 pub const DAY_OFFSET: u64 = 86_400; // 1 day in seconds
 pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
+
+// Type Definitions
+// Q: Is it fine to pass around these as tuples?
+pub type FrankingKey = (Scalar, Scalar);
+pub type PublicKey = (RistrettoPoint, RistrettoPoint);
+pub type MessageContext = ([u8; 32], u64); // (id, t_msg)
+
+// Structs
+pub struct FrankingData {
+    pub k_pub: PublicKey,        // Public Key (g0, g1)
+    pub r_point: RistrettoPoint, // Ristretto Point R
+    pub e_r: RistrettoPoint,     // Ephemeral Ristretto Point E_r
+    pub tag: RistrettoPoint,     // MAC Tag t
+    pub pi: ZKProof,             // ZK Proof of Knowledge of MAC Tag
+}
 
 // Compute Timestamps for expiry and message
 /// Returns the current UNIX timestamp in seconds, plus any offset.
@@ -75,8 +79,8 @@ pub fn user_keygen() -> Scalar {
 pub fn compute_public_key(k_f: &FrankingKey) -> PublicKey {
     let (x0, x1) = k_f;
 
-    let g0: RistrettoPoint = x0 * RISTRETTO_BASEPOINT_TABLE;
-    let g1: RistrettoPoint = x1 * RISTRETTO_BASEPOINT_TABLE;
+    let g0: RistrettoPoint = x0 * G;
+    let g1: RistrettoPoint = x1 * G;
 
     (g0, g1)
 }
@@ -125,56 +129,4 @@ pub fn serialize_registration(
     msg[96..104].copy_from_slice(&t_expiry.to_le_bytes());
 
     msg
-}
-
-// TODO: ZK.Prove, ZK.Verify
-// Chapter 19 Boneh Shoup for Proof, 19.5.3
-// ZK Proof of Knowledge of MAC Tag
-/// Generates a zero-knowledge proof for mac tag.
-///
-/// # Arguments
-/// * `r` - Ristretto Point R
-/// * `k_f` - Franking Key
-/// * `(k_pub, tag)` - Public Key and MAC Tag
-/// * `m` - Message
-/// * `id` - User Identifier
-/// * `t_msg` - Message Timestamp
-pub fn zk_prove(
-    r: &RistrettoPoint,
-    k_f: &FrankingKey,
-    k_pub: &PublicKey,
-    tag: &RistrettoPoint,
-    m: &[u8],
-    id: &[u8; 32],
-    t_msg: u64,
-) -> () {
-    unimplemented!()
-}
-
-// ZK Proof Verification
-/// Verifies the zero-knowledge proof for mac tag.
-///
-/// # Arguments
-/// * `r` - Ristretto Point R
-/// * `k_pub` - Public Key
-/// * `pk_r` - Recipient's Public Key
-/// * `tag` - MAC Tag
-/// * `m` - Message
-/// * `id` - User Identifier
-/// * `t_msg` - Message Timestamp
-/// * `pi` - ZK Proof
-///
-/// # Returns
-/// * `bool` - indicating validity (true) or invalidity (false)
-pub fn zk_verify(
-    r: &RistrettoPoint,
-    k_pub: &PublicKey,
-    pk_r: &RistrettoPoint,
-    tag: &RistrettoPoint,
-    m: &[u8],
-    id: &[u8; 32],
-    t_msg: u64,
-    pi: &(),
-) -> bool {
-    unimplemented!()
 }
