@@ -19,7 +19,6 @@ pub const DAY_OFFSET: u64 = 86_400; // 1 day in seconds
 pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
 
 // Type Definitions
-// Q: Is it fine to pass around these as tuples?
 pub type FrankingKey = (Scalar, Scalar);
 pub type PublicKey = (RistrettoPoint, RistrettoPoint);
 pub type MessageContext = ([u8; 32], u64); // (id, t_msg)

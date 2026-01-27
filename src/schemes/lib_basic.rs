@@ -221,7 +221,6 @@ impl Client {
         let pi = zk_prove(&r, k_f, k_pub, &tag, m, ctx);
 
         // Return Franking Data
-        // Q: Is it better to allocate an array for this instead of doing a tuple?
         FrankingData {
             k_pub: *k_pub,
             r_point: r,

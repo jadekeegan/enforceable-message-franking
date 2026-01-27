@@ -8,6 +8,7 @@ use crate::toolbox::{
     lib_mac_ggm::hash_context,
 };
 
+// ZK Proof Structure
 pub struct ZKProof {
     // Commitments
     pub t0: RistrettoPoint,     // g^r0
