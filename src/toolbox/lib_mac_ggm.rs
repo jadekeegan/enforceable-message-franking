@@ -95,3 +95,116 @@ pub fn mac_verify(
     // Check if expected tag matches provided tag
     expected == *tag
 }
+
+// Unit Tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mac_keygen_is_unique() {
+        let k_f1 = mac_keygen();
+        let k_f2 = mac_keygen();
+
+        assert_ne!(k_f1, k_f2, "Generated franking keys are not unique");
+    }
+
+    #[test]
+    fn test_hash_context_is_unique_for_different_messages() {
+        let id = [0u8; 32];
+        let m1 = b"Test message 1";
+        let m2 = b"Test message 2";
+        let t_msg = 1_000_000u64;
+
+        let h1 = hash_context(&id, m1, t_msg);
+        let h2 = hash_context(&id, m2, t_msg);
+
+        assert_ne!(
+            h1, h2,
+            "Hash context outputs are not unique for different messages"
+        );
+    }
+
+    #[test]
+    fn test_hash_context_is_deterministic() {
+        let id = [0u8; 32];
+        let m = b"Test message";
+        let t_msg = 1_000_000u64;
+
+        let h1 = hash_context(&id, m, t_msg);
+        let h2 = hash_context(&id, m, t_msg);
+
+        assert_eq!(h1, h2, "Hash context is not deterministic");
+    }
+
+    #[test]
+    fn test_mac_tag_is_correct() {
+        let k_f = (Scalar::ONE, Scalar::ONE + Scalar::ONE);
+        let id = [0u8; 32];
+        let m = b"Test message";
+        let t_msg = 1_000_000u64;
+
+        let tag = mac_tag(&k_f, &id, m, t_msg);
+        let expected_exp = k_f.0 + (k_f.1 * hash_context(&id, m, t_msg));
+        let expected_tag = &expected_exp * G;
+
+        assert_eq!(tag, expected_tag, "Computed MAC tag is incorrect");
+    }
+
+    #[test]
+    fn test_mac_tag_is_unique_for_different_messages() {
+        let k_f = mac_keygen();
+        let id = [0u8; 32];
+        let m1 = b"Test message 1";
+        let m2 = b"Test message 2";
+        let t_msg = 1_000_000u64;
+
+        let tag1 = mac_tag(&k_f, &id, m1, t_msg);
+        let tag2 = mac_tag(&k_f, &id, m2, t_msg);
+
+        assert_ne!(tag1, tag2, "MAC tags are not unique for different messages");
+    }
+
+    #[test]
+    fn test_mac_tag_is_deterministic() {
+        let k_f = mac_keygen();
+        let id = [0u8; 32];
+        let m = b"Test message";
+        let t_msg = 1_000_000u64;
+
+        let tag1 = mac_tag(&k_f, &id, m, t_msg);
+        let tag2 = mac_tag(&k_f, &id, m, t_msg);
+
+        assert_eq!(tag1, tag2, "MAC tag is not deterministic");
+    }
+
+    #[test]
+    fn test_mac_verify_correctness() {
+        let k_f = mac_keygen();
+        let id = [0u8; 32];
+        let m = b"Test message";
+        let t_msg = 1_000_000u64;
+
+        let tag = mac_tag(&k_f, &id, m, t_msg);
+        let is_valid = mac_verify(&k_f, &id, m, t_msg, &tag);
+
+        assert!(is_valid, "MAC verification failed for valid tag");
+    }
+
+    #[test]
+    fn test_mac_verify_invalidity() {
+        let k_f = mac_keygen();
+        let id = [0u8; 32];
+        let m = b"Test message";
+        let t_msg = 1_000_000u64;
+
+        let invalid_tag = RistrettoPoint::default();
+
+        let is_valid = mac_verify(&k_f, &id, m, t_msg, &invalid_tag);
+
+        assert!(
+            !is_valid,
+            "MAC verification incorrectly passed for invalid tag"
+        );
+    }
+}

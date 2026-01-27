@@ -129,3 +129,137 @@ pub fn serialize_registration(
 
     msg
 }
+
+// Unit Tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_compute_timestamp() {
+        for offset in [0, HOUR_OFFSET, DAY_OFFSET, WEEK_OFFSET] {
+            let ts = compute_timestamp(offset);
+            let now = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs();
+
+            assert!(
+                ts >= now + offset,
+                "Timestamp with offset {} is less than expected",
+                offset
+            );
+        }
+    }
+
+    #[test]
+    fn test_moderator_keygen_is_unique() {
+        let sk1 = moderator_keygen();
+        let sk2 = moderator_keygen();
+
+        assert_ne!(
+            sk1.to_bytes(),
+            sk2.to_bytes(),
+            "Generated secret keys are not unique"
+        );
+        assert_ne!(
+            sk1.verifying_key().to_bytes(),
+            sk2.verifying_key().to_bytes(),
+            "Generated public keys are not unique"
+        );
+    }
+
+    #[test]
+    fn test_user_keygen_is_unique() {
+        let sk1 = user_keygen();
+        let sk2 = user_keygen();
+
+        assert_ne!(
+            sk1.to_bytes(),
+            sk2.to_bytes(),
+            "Generated user secret keys are not unique"
+        );
+    }
+
+    #[test]
+    fn test_compute_public_key_is_correct() {
+        let x0 = Scalar::ONE;
+        let x1 = Scalar::ONE + Scalar::ONE;
+
+        let k_f = (x0, x1);
+        let (g0, g1) = compute_public_key(&k_f);
+
+        assert_eq!(g0, &x0 * G, "Computed g0 is incorrect");
+        assert_eq!(g1, &x1 * G, "Computed g1 is incorrect");
+    }
+
+    #[test]
+    fn test_generate_user_id_is_unique() {
+        let id1 = generate_user_id();
+        let id2 = generate_user_id();
+
+        assert_ne!(id1, id2, "Generated user IDs are not unique");
+    }
+
+    #[test]
+    fn test_serialize_registration_length() {
+        let id = [0u8; 32];
+        let g0 = RistrettoPoint::default();
+        let g1 = RistrettoPoint::default();
+        let k_pub = (g0, g1);
+        let t_expiry = 1_000_000u64;
+
+        let serialized = serialize_registration(&id, &k_pub, t_expiry);
+
+        assert_eq!(
+            serialized.len(),
+            REGISTRATION_SERIALIZATION_LEN,
+            "Serialized registration length is incorrect"
+        );
+    }
+
+    #[test]
+    fn test_serialize_registration_is_deterministic() {
+        let id = [0u8; 32];
+        let g0 = RistrettoPoint::default();
+        let g1 = RistrettoPoint::default();
+        let k_pub = (g0, g1);
+        let t_expiry = 1_000_000u64;
+
+        let serialized1 = serialize_registration(&id, &k_pub, t_expiry);
+        let serialized2 = serialize_registration(&id, &k_pub, t_expiry);
+
+        assert_eq!(
+            serialized1, serialized2,
+            "Serialized registration is not deterministic"
+        );
+    }
+
+    #[test]
+    fn test_serialize_registration_corret_contents() {
+        let id = [0u8; 32];
+        let g0 = RistrettoPoint::default();
+        let g1 = RistrettoPoint::default();
+        let k_pub = (g0, g1);
+        let t_expiry = 1_000_000u64;
+
+        let serialized = serialize_registration(&id, &k_pub, t_expiry);
+
+        assert_eq!(&serialized[..32], &id, "Serialized id is incorrect");
+        assert_eq!(
+            &serialized[32..64],
+            &g0.compress().to_bytes(),
+            "Serialized g0 is incorrect"
+        );
+        assert_eq!(
+            &serialized[64..96],
+            &g1.compress().to_bytes(),
+            "Serialized g1 is incorrect"
+        );
+        assert_eq!(
+            &serialized[96..104],
+            &t_expiry.to_le_bytes(),
+            "Serialized t_expiry is incorrect"
+        );
+    }
+}
