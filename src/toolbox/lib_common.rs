@@ -7,7 +7,7 @@ use ed25519_dalek::SigningKey;
 use rand::RngCore;
 use rand::rngs::OsRng;
 
-use crate::toolbox::lib_zkpok::ZKProof;
+use crate::toolbox::lib_zkpok::MacOrDlogZKProof;
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
@@ -29,7 +29,7 @@ pub struct FrankingData {
     pub r_point: RistrettoPoint, // Ristretto Point R
     pub e_r: RistrettoPoint,     // Ephemeral Ristretto Point E_r
     pub tag: RistrettoPoint,     // MAC Tag t
-    pub pi: ZKProof,             // ZK Proof of Knowledge of MAC Tag
+    pub pi: MacOrDlogZKProof,    // ZK Proof of Knowledge of MAC Tag
 }
 
 // Compute Timestamps for expiry and message

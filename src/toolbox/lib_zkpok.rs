@@ -9,7 +9,7 @@ use crate::toolbox::{
 };
 
 // ZK Proof Structure
-pub struct ZKProof {
+pub struct MacOrDlogZKProof {
     // Commitments
     pub t0: RistrettoPoint,     // g^r0
     pub t1: RistrettoPoint,     // g^r1
@@ -36,14 +36,14 @@ pub struct ZKProof {
 /// * `m` - Message
 /// * `id` - User Identifier
 /// * `t_msg` - Message Timestamp
-pub fn zk_prove(
+pub fn zk_mac_dlog_prove(
     r_point: &RistrettoPoint,
     k_f: &FrankingKey,
     k_pub: &PublicKey,
     tag: &RistrettoPoint,
     m: &[u8],
     ctx: MessageContext,
-) -> ZKProof {
+) -> MacOrDlogZKProof {
     // Initialize RNG
     let mut rng = OsRng;
 
@@ -81,7 +81,7 @@ pub fn zk_prove(
     let z0 = r0 + c_frank * x0;
     let z1 = r1 + c_frank * x1;
 
-    ZKProof {
+    MacOrDlogZKProof {
         t0,
         t1,
         t_mac,
@@ -109,17 +109,17 @@ pub fn zk_prove(
 ///
 /// # Returns
 /// * `bool` - indicating validity (true) or invalidity (false)
-pub fn zk_verify(
+pub fn zk_mac_dlog_verify(
     r_point: &RistrettoPoint,
     k_pub: &PublicKey,
     _pk_r: &RistrettoPoint,
     tag: &RistrettoPoint,
     m: &[u8],
     ctx: MessageContext,
-    pi: &ZKProof,
+    pi: &MacOrDlogZKProof,
 ) -> bool {
     // Unpack proof
-    let ZKProof {
+    let MacOrDlogZKProof {
         t0,
         t1,
         t_mac,

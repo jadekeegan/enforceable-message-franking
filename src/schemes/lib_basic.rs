@@ -218,7 +218,7 @@ impl Client {
         let tag = mac_tag(k_f, &id, m, t_msg);
 
         // Compute proof pi
-        let pi = zk_prove(&r, k_f, k_pub, &tag, m, ctx);
+        let pi = zk_mac_dlog_prove(&r, k_f, k_pub, &tag, m, ctx);
 
         // Return Franking Data
         FrankingData {
@@ -269,7 +269,7 @@ impl Client {
         let recomputed_r = sk_r * e_r;
         let is_r_valid = &recomputed_r == r_point;
         let is_t_valid = t_msg < t_expiry;
-        let is_pi_valid = zk_verify(r_point, k_pub, pk_r, tag, m, ctx, pi);
+        let is_pi_valid = zk_mac_dlog_verify(r_point, k_pub, pk_r, tag, m, ctx, pi);
 
         assert!(is_r_valid && is_t_valid && is_pi_valid);
 
