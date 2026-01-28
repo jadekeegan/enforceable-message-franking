@@ -1,6 +1,6 @@
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_mac_ggm::*;
 use crate::toolbox::lib_mac_dlog_zk_proof::*;
+use crate::toolbox::lib_mac_ggm::*;
 
 // Ristretto
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
@@ -9,8 +9,6 @@ use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::Signature;
 // Signature
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
-use rand::distributions::Alphanumeric;
-use rand::distributions::DistString;
 use rand::rngs::OsRng;
 use signature::Verifier;
 
@@ -144,9 +142,9 @@ impl Client {
         let is_k_pub_valid = k_pub == &computed_k_pub;
 
         // Serialize message registration data and verify signature
-        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] =
+        let data: [u8; REGISTRATION_SERIALIZATION_LEN] =
             serialize_registration(&self.id, k_pub, t_expiry);
-        let is_sig_valid = pk_m.verify(&msg, sig).is_ok();
+        let is_sig_valid = pk_m.verify(&data, sig).is_ok();
 
         is_k_pub_valid && is_sig_valid
     }
@@ -274,76 +272,37 @@ impl Client {
     }
 }
 
-// Set Up Moderator
-pub fn test_moderator_setup() -> Moderator {
-    Moderator::new()
-}
+#[cfg(test)]
+mod test {
 
-// Set up Multiple Moderators
-pub fn test_basic_init_moderators(num_moderators: usize) -> Vec<Moderator> {
-    let mut moderators: Vec<Moderator> = Vec::with_capacity(num_moderators);
-    for _ in 0..num_moderators {
-        moderators.push(test_moderator_setup());
+    use super::*;
+
+    #[test]
+    fn test_register_user_generates_valid_sig() {
+        let moderator = Moderator::new();
+        let client = Client::new();
+
+        let t_expiry = compute_timestamp(WEEK_OFFSET);
+        let (_k_f, k_pub, sig) = moderator.register_user(&client.id, t_expiry);
+
+        let data: [u8; REGISTRATION_SERIALIZATION_LEN] =
+            serialize_registration(&client.id, &k_pub, t_expiry);
+
+        assert!(moderator.pk.verify(&data, &sig).is_ok());
     }
-    moderators
-}
 
-// Set Up Client
-pub fn test_client_setup() -> Client {
-    Client::new()
-}
+    #[test]
+    fn test_register_user_generates_valid_keys() {
+        let moderator = Moderator::new();
+        let client = Client::new();
 
-// Set Up Multiple Clients
-pub fn test_basic_init_clients(num_clients: usize) -> Vec<Client> {
-    let mut clients: Vec<Client> = Vec::with_capacity(num_clients);
-    for _ in 0..num_clients {
-        clients.push(test_client_setup());
+        let t_expiry = compute_timestamp(WEEK_OFFSET);
+        let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
+
+        let (x0, x1) = k_f;
+        let (g0, g1) = k_pub;
+
+        assert!(&x0 * G == g0);
+        assert!(&x1 * G == g1);
     }
-    clients
-}
-
-// Set Up Session
-pub fn test_basic_set_up_session(
-    moderator: &Moderator,
-    sender: &Client,
-    receiver: &Client,
-    t_expiry: u64,
-) -> (FrankingKey, PublicKey) {
-    // Register User
-    let (k_f, k_pub, sig) = moderator.register_user(&sender.id, t_expiry);
-
-    // Initialize Session
-    let is_session_valid = sender.session_init(&moderator.pk, &k_f, &k_pub, t_expiry, &sig);
-    assert!(is_session_valid, "Session initialization failed");
-
-    // Accept Session by Receiver
-    let is_session_accepted =
-        receiver.accept_session(&moderator.pk, &sender.id, &k_pub, t_expiry, &sig);
-    assert!(is_session_accepted, "Session acceptance failed");
-
-    (k_f, k_pub)
-}
-
-// Setup Messages
-pub fn test_basic_init_messages(num_clients: usize, msg_size: usize) -> Vec<String> {
-    // Prepare messages
-    let mut ms: Vec<String> = Vec::with_capacity(num_clients);
-    for _i in 0..num_clients {
-        let m = Alphanumeric.sample_string(&mut rand::thread_rng(), msg_size);
-        ms.push(m);
-    }
-    ms
-}
-
-// Frank Message
-pub fn test_frank_message(
-    client: &Client,
-    receiver: &Client,
-    k_f: &FrankingKey,
-    k_pub: &PublicKey,
-    m: &[u8],
-    t_msg: u64,
-) -> FrankingData {
-    let ctx = (client.id, t_msg);
-    client.frank(&receiver.pk, k_f, k_pub, m, ctx)
 }
