@@ -7,7 +7,7 @@ use ed25519_dalek::SigningKey;
 use rand::RngCore;
 use rand::rngs::OsRng;
 
-use crate::toolbox::lib_zkpok::MacOrDlogZKProof;
+use crate::toolbox::lib_mac_dlog_zk_proof::MacOrDlogZKProof;
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)

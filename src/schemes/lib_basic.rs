@@ -1,6 +1,6 @@
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_ggm::*;
-use crate::toolbox::lib_zkpok::*;
+use crate::toolbox::lib_mac_dlog_zk_proof::*;
 
 // Ristretto
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
