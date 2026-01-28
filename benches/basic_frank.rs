@@ -6,13 +6,14 @@ pub fn bench_basic_frank(c: &mut Criterion) {
     let (moderator, sender, receiver) = test_session_set_up();
     let t_expiry = compute_timestamp(WEEK_OFFSET);
 
-    // Setup Session
+    // Register User to get Franking and Public Keys
     let (k_f, k_pub) = test_register_user(&moderator, &sender, t_expiry);
 
     // Generate test messages of various sizes
     let ms = test_basic_init_messages();
     let t_msg = compute_timestamp(0);
 
+    // Benchmark
     let mut group = c.benchmark_group("basic.frank()");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
