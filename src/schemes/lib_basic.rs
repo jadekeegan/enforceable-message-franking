@@ -88,10 +88,10 @@ impl Moderator {
         tag: &RistrettoPoint,
     ) -> bool {
         // Unpack context
-        let (id, t_msg) = ctx;
+        let (_id, t_msg) = ctx;
 
         let is_time_valid = t_msg < t_expiry;
-        let is_sig_valid = mac_verify(k_f, &id, m, t_msg, tag);
+        let is_sig_valid = mac_verify(k_f, m, ctx, tag);
 
         is_time_valid && is_sig_valid
     }
@@ -202,9 +202,6 @@ impl Client {
         m: &[u8],
         ctx: MessageContext,
     ) -> FrankingData {
-        // Unpack context
-        let (id, t_msg) = ctx;
-
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
@@ -215,7 +212,7 @@ impl Client {
         let e_r = &alpha * G;
 
         // Compute MAC Tag t
-        let tag = mac_tag(k_f, &id, m, t_msg);
+        let tag = mac_tag(k_f, m, ctx);
 
         // Compute proof pi
         let pi = zk_mac_dlog_prove(&r, k_f, k_pub, &tag, m, ctx);
@@ -276,8 +273,6 @@ impl Client {
         *tag
     }
 }
-
-// Test Functions
 
 // Set Up Moderator
 pub fn test_moderator_setup() -> Moderator {

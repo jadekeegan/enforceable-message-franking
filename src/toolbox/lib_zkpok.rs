@@ -52,8 +52,7 @@ pub fn zk_mac_dlog_prove(
     let (g0, g1) = k_pub;
 
     // Compute message hash h
-    let (id, t_msg) = ctx;
-    let h_m = hash_context(&id, m, t_msg);
+    let h_m = hash_context(m, ctx);
 
     // Generate random scalars r0, r1
     let r0 = Scalar::random(&mut rng);
@@ -135,8 +134,7 @@ pub fn zk_mac_dlog_verify(
     let (g0, g1) = k_pub;
 
     // Compute message hash h
-    let (id, t_msg) = ctx;
-    let h_m = hash_context(&id, m, t_msg);
+    let h_m = hash_context(m, ctx);
 
     // Recompute challenge c
     let c = hash_challenge([g0, g1, r_point, tag, t0, t1, t_mac, t_dlog], m, ctx);
@@ -170,4 +168,114 @@ pub fn hash_challenge(points: [&RistrettoPoint; 8], m: &[u8], ctx: MessageContex
     // Finalize hash and convert to Scalar
     let hash_bytes = hasher.finalize();
     Scalar::from_bytes_mod_order(hash_bytes.into())
+}
+
+// Unit Tests
+#[cfg(test)]
+mod test {
+
+    use crate::toolbox::lib_mac_ggm::mac_tag;
+
+    use super::*;
+
+    fn test_dummy_params() -> (
+        FrankingKey,
+        PublicKey,
+        RistrettoPoint,
+        &'static [u8],
+        MessageContext,
+    ) {
+        let k_f = (Scalar::from(1u64), Scalar::from(2u64));
+        let k_pub = (&k_f.0 * G, &k_f.1 * G);
+        let r_point = RistrettoPoint::default();
+        let m = b"Test message";
+        let ctx = (
+            [0u8; 32], // id
+            0u64,      // t_msg
+        );
+
+        (k_f, k_pub, r_point, m, ctx)
+    }
+
+    #[test]
+    fn test_zk_verifies_valid_tag() {
+        // Dummy values
+        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+
+        // Compute mac tag
+        let tag = mac_tag(&k_f, m, ctx);
+
+        // Compute proof on k_f and tag
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &k_pub, &tag, m, ctx);
+
+        let is_valid = zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &tag, m, ctx, &pi);
+        assert!(is_valid);
+    }
+
+    #[test]
+    fn test_zk_does_not_verify_invalid_franking_key() {
+        // Dummy values
+        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+
+        // Compute mac tag
+        let tag = mac_tag(&k_f, m, ctx);
+
+        // Compute proof on invalid k_f and tag
+        let invalid_k_f = (k_f.0 + Scalar::from(1u64), k_f.1);
+        let pi = zk_mac_dlog_prove(&r_point, &invalid_k_f, &k_pub, &tag, m, ctx);
+
+        let is_valid = zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &tag, m, ctx, &pi);
+        assert!(!is_valid);
+    }
+
+    #[test]
+    fn test_zk_does_not_verify_invalid_tag() {
+        // Dummy values
+        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+
+        // Compute mac tag
+        let tag = mac_tag(&k_f, m, ctx);
+
+        // Compute proof on k_f and invalid tag
+        let invalid_tag = RistrettoPoint::default();
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &k_pub, &invalid_tag, m, ctx);
+
+        let is_valid = zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &tag, m, ctx, &pi);
+        assert!(!is_valid);
+    }
+
+    #[test]
+    fn test_zk_does_not_verify_invalid_message() {
+        // Dummy values
+        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+
+        // Compute mac tag
+        let tag = mac_tag(&k_f, m, ctx);
+
+        // Compute proof on k_f and tag with invalid message
+        let invalid_m = b"Invalid message";
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &k_pub, &tag, invalid_m, ctx);
+
+        let is_valid = zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &tag, m, ctx, &pi);
+        assert!(!is_valid);
+    }
+
+    #[test]
+    fn test_zk_does_not_verify_invalid_context() {
+        // Dummy values
+        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+
+        // Compute mac tag
+        let tag = mac_tag(&k_f, m, ctx);
+
+        // Compute proof on k_f and tag with invalid context
+        let invalid_ctx = (
+            [1u8; 32], // id
+            0u64,      // t_msg
+        );
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &k_pub, &tag, m, invalid_ctx);
+
+        let is_valid = zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &tag, m, ctx, &pi);
+        assert!(!is_valid);
+    }
 }
