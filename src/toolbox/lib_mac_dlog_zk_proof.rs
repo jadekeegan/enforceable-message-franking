@@ -21,9 +21,10 @@ pub struct MacOrDlogZKProof {
     pub c_dlog: Scalar,  // Dlog challenge
 
     // Responses
-    pub z0: Scalar,     // r0 + c*x0
-    pub z1: Scalar,     // r1 + c*x1
-    pub z_dlog: Scalar, // Dlog response
+    pub z0: Scalar,            // r0 + c*x0
+    pub z1: Scalar,            // r1 + c*x1
+    pub z_mac: RistrettoPoint, // MAC response
+    pub z_dlog: Scalar,        // Dlog response
 }
 
 // ZK Proof of Knowledge of MAC Tag
@@ -70,8 +71,8 @@ pub fn zk_mac_dlog_prove(
     let z_dlog = Scalar::random(&mut rng);
     let t_dlog = &z_dlog * G - c_dlog * r_point; // g^z_dlog * R^(-c_dlog)
 
-    // Compute fiat shamir challenge c = H(g0, g1, R, t0, t1, t_mac, t_dlog, id, m, t_msg)
-    let c = hash_challenge([g0, g1, r_point, tag, &t0, &t1, &t_mac, &t_dlog], m, ctx);
+    // Compute fiat shamir challenge c = H(g0, g1, R, t0, t1, t_mac, t_dlog)
+    let c = hash_challenge([g0, g1, r_point, tag, &t0, &t1, &t_mac, &t_dlog]);
 
     // Compute franking key challenge
     let c_frank = c - c_dlog;
@@ -79,6 +80,7 @@ pub fn zk_mac_dlog_prove(
     // Compute responses
     let z0 = r0 + c_frank * x0;
     let z1 = r1 + c_frank * x1;
+    let z_mac = &(z0 + z1 * h_m) * G;
 
     MacOrDlogZKProof {
         t0,
@@ -90,6 +92,7 @@ pub fn zk_mac_dlog_prove(
         z0,
         z1,
         z_dlog,
+        z_mac,
     }
 }
 
@@ -113,8 +116,8 @@ pub fn zk_mac_dlog_verify(
     k_pub: &PublicKey,
     _pk_r: &RistrettoPoint,
     tag: &RistrettoPoint,
-    m: &[u8],
-    ctx: MessageContext,
+    _m: &[u8],
+    _ctx: MessageContext,
     pi: &MacOrDlogZKProof,
 ) -> bool {
     // Unpack proof
@@ -128,28 +131,26 @@ pub fn zk_mac_dlog_verify(
         z0,
         z1,
         z_dlog,
+        z_mac,
     } = pi;
 
     // Unpack public key
     let (g0, g1) = k_pub;
 
-    // Compute message hash h
-    let h_m = hash_context(m, ctx);
-
     // Recompute challenge c
-    let c = hash_challenge([g0, g1, r_point, tag, t0, t1, t_mac, t_dlog], m, ctx);
+    let c = hash_challenge([g0, g1, r_point, tag, t0, t1, t_mac, t_dlog]);
     let v_c = c == (c_frank + c_dlog);
 
     // Verify commitments
     let v0 = z0 * G == t0 + c_frank * g0;
     let v1 = z1 * G == t1 + c_frank * g1;
-    let v_mac = &(z0 + z1 * h_m) * G == t_mac + c_frank * tag;
+    let v_mac = *z_mac == t_mac + c_frank * tag;
     let v_dlog = z_dlog * G == t_dlog + c_dlog * r_point;
 
     v_c && v0 && v1 && v_mac && v_dlog
 }
 
-pub fn hash_challenge(points: [&RistrettoPoint; 8], m: &[u8], ctx: MessageContext) -> Scalar {
+pub fn hash_challenge(points: [&RistrettoPoint; 8]) -> Scalar {
     use sha2::{Digest, Sha256};
 
     let mut hasher = Sha256::new();
@@ -158,12 +159,6 @@ pub fn hash_challenge(points: [&RistrettoPoint; 8], m: &[u8], ctx: MessageContex
     for point in points {
         hasher.update(point.compress().as_bytes());
     }
-
-    // Hash message context
-    let (id, t_msg) = ctx;
-    hasher.update(id);
-    hasher.update(m);
-    hasher.update(t_msg.to_le_bytes());
 
     // Finalize hash and convert to Scalar
     let hash_bytes = hasher.finalize();
