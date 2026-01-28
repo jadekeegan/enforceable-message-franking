@@ -99,7 +99,7 @@ impl Moderator {
 pub struct Client {
     pub id: [u8; 32],       // User Identifier
     pub pk: RistrettoPoint, // User Public Key (g^sk)
-    _sk: Scalar,            // User Secret Key
+    sk: Scalar,             // User Secret Key
 }
 
 // Client Implementation
@@ -111,7 +111,7 @@ impl Client {
         let pk = &sk * G;
         Client {
             pk,
-            _sk: sk,
+            sk,
             id: generate_user_id(),
         }
     }
@@ -154,10 +154,10 @@ impl Client {
     ///
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
-    /// * `id` - User Identifier
-    /// * `k_pub` - Public Key
+    /// * `id` - Sender User Identifier
+    /// * `k_pub` - Sender Franking Public Key
     /// * `t_expiry` - Signature Expiry Time
-    /// * `sig` - Moderator Signature on User Registration
+    /// * `sig` - Moderator Signature on Sender User Registration
     ///
     /// # Returns
     /// * `bool` - indicating acceptance (true) or rejection (false)
@@ -193,7 +193,7 @@ impl Client {
     /// * `FrankData` - contains the Franking AD
     pub fn frank(
         &self,
-        // pk_m: &VerifyingKey,
+        // _pk_m: &VerifyingKey, (Not Used in this Implementation)
         pk_r: &RistrettoPoint,
         k_f: &FrankingKey,
         k_pub: &PublicKey,
@@ -231,7 +231,6 @@ impl Client {
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
     /// * `pk_R` - Recipient's Public Key
-    /// * `sk_R` - Recipient's Secret Key
     /// * `m` - Message to be Verified
     /// * `ad` - Franking Data
     /// * `id` - User Identifier
@@ -244,7 +243,6 @@ impl Client {
         &self,
         // pk_m: &VerifyingKey,
         pk_r: &RistrettoPoint,
-        sk_r: &Scalar,
         ad: &FrankingData,
         m: &[u8],
         ctx: MessageContext,
@@ -261,7 +259,7 @@ impl Client {
             pi,
         } = ad;
 
-        let recomputed_r = sk_r * e_r;
+        let recomputed_r = self.sk * e_r;
         let is_r_valid = &recomputed_r == r_point;
         let is_t_valid = t_msg < t_expiry;
         let is_pi_valid = zk_mac_dlog_verify(r_point, k_pub, pk_r, tag, m, ctx, pi);

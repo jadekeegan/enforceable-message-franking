@@ -3,11 +3,9 @@ use federated_franking_impl::schemes::bench_helpers::*;
 use federated_franking_impl::toolbox::lib_common::*;
 
 pub fn bench_basic_frank(c: &mut Criterion) {
-    let (moderator, sender, receiver) = test_session_set_up();
+    // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-
-    // Register User to get Franking and Public Keys
-    let (k_f, k_pub) = test_register_user(&moderator, &sender, t_expiry);
+    let (_moderator, sender, receiver, k_f, k_pub, _sig) = test_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes
     let ms = test_basic_init_messages();
@@ -23,7 +21,7 @@ pub fn bench_basic_frank(c: &mut Criterion) {
                 b.iter(|| {
                     test_frank_message(
                         &sender,
-                        &receiver,
+                        &receiver.pk,
                         &k_f,
                         &k_pub,
                         ms[j].as_bytes(), // Convert String to &[u8]
@@ -33,7 +31,6 @@ pub fn bench_basic_frank(c: &mut Criterion) {
             },
         );
     }
-
     group.finish();
 }
 
