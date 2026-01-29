@@ -1,6 +1,6 @@
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_dlog_zk_proof::*;
-use crate::toolbox::lib_mac_ggm::*;
+use crate::toolbox::lib_mac_ggm as mac;
 
 // Ristretto
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
@@ -49,7 +49,7 @@ impl Moderator {
         t_expiry: u64,
     ) -> (FrankingKey, PublicKey, Signature) {
         // Franking Key Generation (x0, x1)
-        let k_f = mac_keygen();
+        let k_f = mac::keygen();
 
         // Public Key Generation (g^x0, g^x1)
         let k_pub = compute_public_key(&k_f);
@@ -89,7 +89,7 @@ impl Moderator {
         let (_id, t_msg) = ctx;
 
         let is_time_valid = t_msg < t_expiry;
-        let is_sig_valid = mac_verify(k_f, m, ctx, tag);
+        let is_sig_valid = mac::verify(k_f, m, ctx, tag);
 
         is_time_valid && is_sig_valid
     }
@@ -210,7 +210,7 @@ impl Client {
         let e_r = &alpha * G;
 
         // Compute MAC Tag t
-        let tag = mac_tag(k_f, m, ctx);
+        let tag = mac::tag(k_f, m, ctx);
 
         // Compute proof pi
         let pi = zk_mac_dlog_prove(&r, k_f, k_pub, &tag, m, ctx);

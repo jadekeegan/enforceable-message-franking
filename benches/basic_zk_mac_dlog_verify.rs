@@ -11,8 +11,13 @@ pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
 
     // Generate test messages of various sizes with franking data and proofs
     let t_msg = compute_timestamp(0);
-    let (ms, fds, pis) =
-        test_init_messages_with_franking_data_and_proof(&sender, &receiver.pk, &k_f, &k_pub, t_msg);
+    let (ms, fds, pis) = test_basic_init_messages_with_franking_data_and_proof(
+        &sender,
+        &receiver.pk,
+        &k_f,
+        &k_pub,
+        t_msg,
+    );
 
     // Benchmark
     let mut group = c.benchmark_group("basic.zk_mac_dlog_verify()");

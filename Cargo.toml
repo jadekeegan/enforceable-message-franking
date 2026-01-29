@@ -91,3 +91,19 @@ harness = false
 [[bench]]
 name = "basic_zk_mac_dlog_verify"
 harness = false
+
+[[bench]]
+name = "mac_ggm_keygen"
+harness = false
+
+[[bench]]
+name = "mac_ggm_hash_context"
+harness = false
+
+[[bench]]
+name = "mac_ggm_tag"
+harness = false
+
+[[bench]]
+name = "mac_ggm_verify"
+harness = false

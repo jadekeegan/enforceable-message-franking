@@ -10,7 +10,7 @@ pub fn bench_basic_moderate(c: &mut Criterion) {
     // Generate test messages of various sizes with corresponding franking data
     let t_msg = compute_timestamp(0);
     let (ms, fds) =
-        test_init_messages_with_franking_data(&sender, &receiver.pk, &k_f, &k_pub, t_msg);
+        test_basic_init_messages_with_franking_data(&sender, &receiver.pk, &k_f, &k_pub, t_msg);
 
     // Benchmark
     let mut group = c.benchmark_group("basic.moderate()");

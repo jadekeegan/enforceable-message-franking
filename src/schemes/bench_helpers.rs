@@ -6,7 +6,9 @@ use crate::schemes::lib_basic::*;
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_dlog_zk_proof as zkp;
 
-pub const MSG_SIZE_SCALE: [usize; 7] = [256, 512, 1024, 2048, 4096, 8192, 65536];
+use crate::toolbox::lib_mac_ggm as mac_ggm;
+
+pub const MSG_SIZE_SCALE: [usize; 7] = [100, 500, 1_000, 5_000, 10_000, 50_000, 100_000];
 
 // Initialize Moderator and Client Only
 pub fn test_init_moderator_client() -> (Moderator, Client) {
@@ -48,8 +50,25 @@ pub fn test_basic_init_messages() -> Vec<String> {
     ms
 }
 
+// Initialize Messages of Varying Sizes with Tags
+pub fn test_init_messages_with_tags(
+    k_f: &FrankingKey,
+    client: &Client,
+    t_msg: u64,
+) -> (Vec<String>, Vec<RistrettoPoint>) {
+    let ms = test_basic_init_messages();
+
+    // Generate Tags for Each Message
+    let mut tags: Vec<RistrettoPoint> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    for m in &ms {
+        tags.push(mac_ggm::tag(k_f, m.as_bytes(), (client.id, t_msg)));
+    }
+
+    (ms, tags)
+}
+
 // Initialize Messages of Varying Sizes with Franking Data
-pub fn test_init_messages_with_franking_data(
+pub fn test_basic_init_messages_with_franking_data(
     sender: &Client,
     pk_r: &RistrettoPoint,
     k_f: &FrankingKey,
@@ -68,7 +87,7 @@ pub fn test_init_messages_with_franking_data(
 }
 
 // Initialize Messages of Varying Sizes with Franking Data and Proof
-pub fn test_init_messages_with_franking_data_and_proof(
+pub fn test_basic_init_messages_with_franking_data_and_proof(
     sender: &Client,
     pk_r: &RistrettoPoint,
     k_f: &FrankingKey,

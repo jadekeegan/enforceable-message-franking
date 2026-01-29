@@ -169,7 +169,7 @@ pub fn hash_challenge(points: [&RistrettoPoint; 8]) -> Scalar {
 #[cfg(test)]
 mod test {
 
-    use crate::toolbox::lib_mac_ggm::mac_tag;
+    use crate::toolbox::lib_mac_ggm::tag;
 
     use super::*;
 
@@ -198,7 +198,7 @@ mod test {
         let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
 
         // Compute mac tag
-        let tag = mac_tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, ctx);
 
         // Compute proof on k_f and tag
         let pi = zk_mac_dlog_prove(&r_point, &k_f, &k_pub, &tag, m, ctx);
@@ -213,7 +213,7 @@ mod test {
         let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
 
         // Compute mac tag
-        let tag = mac_tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, ctx);
 
         // Compute proof on invalid k_f and tag
         let invalid_k_f = (k_f.0 + Scalar::from(1u64), k_f.1);
@@ -229,7 +229,7 @@ mod test {
         let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
 
         // Compute mac tag
-        let tag = mac_tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, ctx);
 
         // Compute proof on k_f and invalid tag
         let invalid_tag = RistrettoPoint::default();
@@ -245,7 +245,7 @@ mod test {
         let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
 
         // Compute mac tag
-        let tag = mac_tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, ctx);
 
         // Compute proof on k_f and tag with invalid message
         let invalid_m = b"Invalid message";
@@ -261,7 +261,7 @@ mod test {
         let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
 
         // Compute mac tag
-        let tag = mac_tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, ctx);
 
         // Compute proof on k_f and tag with invalid context
         let invalid_ctx = (
