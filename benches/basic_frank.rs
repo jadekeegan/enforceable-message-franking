@@ -5,7 +5,8 @@ use federated_franking_impl::toolbox::lib_common::*;
 pub fn bench_basic_frank(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (_moderator, sender, receiver, k_f, k_pub, _sig) = test_init_full_session_data(t_expiry);
+    let (_moderator, sender, receiver, k_f, k_pub, _sig) =
+        test_basic_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes
     let ms = test_basic_init_messages();

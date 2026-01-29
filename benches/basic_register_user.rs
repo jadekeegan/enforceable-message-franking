@@ -4,7 +4,7 @@ use federated_franking_impl::toolbox::lib_common::*;
 
 pub fn bench_basic_register_user(c: &mut Criterion) {
     // Set Up Data
-    let (moderator, client) = test_init_moderator_client();
+    let (moderator, client) = test_basic_init_moderator_client();
     let t_expiry = compute_timestamp(WEEK_OFFSET);
 
     // Benchmark

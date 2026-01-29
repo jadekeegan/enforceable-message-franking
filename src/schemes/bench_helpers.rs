@@ -11,7 +11,7 @@ use crate::toolbox::lib_mac_ggm as mac_ggm;
 pub const MSG_SIZE_SCALE: [usize; 7] = [100, 500, 1_000, 5_000, 10_000, 50_000, 100_000];
 
 // Initialize Moderator and Client Only
-pub fn test_init_moderator_client() -> (Moderator, Client) {
+pub fn test_basic_init_moderator_client() -> (Moderator, Client) {
     let moderator = Moderator::new();
     let client = Client::new();
 
@@ -19,7 +19,7 @@ pub fn test_init_moderator_client() -> (Moderator, Client) {
 }
 
 // Set Up Client with Session Keys
-pub fn test_init_client_with_keys(t_expiry: u64) -> (Client, FrankingKey, PublicKey) {
+pub fn test_basic_init_client_with_keys(t_expiry: u64) -> (Client, FrankingKey, PublicKey) {
     let moderator = Moderator::new();
     let client = Client::new();
 
@@ -28,7 +28,7 @@ pub fn test_init_client_with_keys(t_expiry: u64) -> (Client, FrankingKey, Public
 }
 
 // Set Up Moderator, Sender, and Receiver and Session Keys
-pub fn test_init_full_session_data(
+pub fn test_basic_init_full_session_data(
     t_expiry: u64,
 ) -> (Moderator, Client, Client, FrankingKey, PublicKey, Signature) {
     let moderator = Moderator::new();
@@ -51,7 +51,7 @@ pub fn test_basic_init_messages() -> Vec<String> {
 }
 
 // Initialize Messages of Varying Sizes with Tags
-pub fn test_init_messages_with_tags(
+pub fn test_basic_init_messages_with_tags(
     k_f: &FrankingKey,
     client: &Client,
     t_msg: u64,
