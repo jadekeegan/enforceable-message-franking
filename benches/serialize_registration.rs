@@ -10,7 +10,7 @@ pub fn bench_serialize_registration(c: &mut Criterion) {
     // Benchmark
     let mut group = c.benchmark_group("serialize_registration()");
     group.bench_function("serialize_registration()", |b| {
-        b.iter(|| test_serialize_registration(&sender.id, &k_pub, t_expiry))
+        b.iter(|| serialize_registration(&sender.id, &k_pub, t_expiry))
     });
     group.finish();
 }

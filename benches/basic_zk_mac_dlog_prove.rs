@@ -2,6 +2,7 @@ use criterion::*;
 
 use federated_franking_impl::schemes::bench_helpers::*;
 use federated_franking_impl::toolbox::lib_common::*;
+use federated_franking_impl::toolbox::lib_mac_dlog_zk_proof as zkp;
 
 pub fn bench_basic_zk_mac_dlog_prove(c: &mut Criterion) {
     // Set Up Session Data
@@ -21,7 +22,7 @@ pub fn bench_basic_zk_mac_dlog_prove(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    test_zk_mac_dlog_prove(
+                    zkp::zk_mac_dlog_prove(
                         &fds[j].r_point,
                         &k_f,
                         &fds[j].k_pub,

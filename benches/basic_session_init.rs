@@ -10,7 +10,7 @@ pub fn bench_basic_session_init(c: &mut Criterion) {
     // Benchmark
     let mut group = c.benchmark_group("basic.session_init()");
     group.bench_function("basic.session_init()", |b| {
-        b.iter(|| test_basic_session_init(&moderator.pk, &sender, &k_f, &k_pub, t_expiry, &sig))
+        b.iter(|| sender.session_init(&moderator.pk, &k_f, &k_pub, t_expiry, &sig))
     });
     group.finish();
 }

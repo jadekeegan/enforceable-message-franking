@@ -20,13 +20,13 @@ pub fn bench_basic_verify(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    test_verify_message(
-                        &receiver,
+                    receiver.verify(
+                        &receiver.pk,
                         &fds[j],
                         ms[j].as_bytes(),
                         (sender.id, t_msg),
                         t_expiry,
-                    );
+                    )
                 })
             },
         );

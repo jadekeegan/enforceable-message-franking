@@ -1,10 +1,12 @@
 use curve25519_dalek::RistrettoPoint;
-use ed25519_dalek::{Signature, VerifyingKey};
+use ed25519_dalek::Signature;
 use rand::distributions::{Alphanumeric, DistString};
 
 use crate::schemes::lib_basic::*;
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_mac_dlog_zk_proof::*;
+use crate::toolbox::lib_mac_dlog_zk_proof as zkp;
+
+pub const MSG_SIZE_SCALE: [usize; 7] = [256, 512, 1024, 2048, 4096, 8192, 65536];
 
 // Initialize Moderator and Client Only
 pub fn test_init_moderator_client() -> (Moderator, Client) {
@@ -59,14 +61,7 @@ pub fn test_init_messages_with_franking_data(
     // Generate Franking Data for Each Message
     let mut fds: Vec<FrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
-        fds.push(test_frank_message(
-            sender,
-            pk_r,
-            k_f,
-            k_pub,
-            m.as_bytes(),
-            t_msg,
-        ));
+        fds.push(sender.frank(pk_r, k_f, k_pub, m.as_bytes(), (sender.id, t_msg)));
     }
 
     (ms, fds)
@@ -79,15 +74,15 @@ pub fn test_init_messages_with_franking_data_and_proof(
     k_f: &FrankingKey,
     k_pub: &PublicKey,
     t_msg: u64,
-) -> (Vec<String>, Vec<FrankingData>, Vec<MacOrDlogZKProof>) {
+) -> (Vec<String>, Vec<FrankingData>, Vec<zkp::MacOrDlogZKProof>) {
     let ms = test_basic_init_messages();
 
     // Generate Franking Data with Proof for Each Message
     let mut fds: Vec<FrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
-    let mut pis: Vec<MacOrDlogZKProof> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut pis: Vec<zkp::MacOrDlogZKProof> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
-        let fd = test_frank_message(sender, pk_r, k_f, k_pub, m.as_bytes(), t_msg);
-        pis.push(test_zk_mac_dlog_prove(
+        let fd = sender.frank(pk_r, k_f, k_pub, m.as_bytes(), (sender.id, t_msg));
+        pis.push(zkp::zk_mac_dlog_prove(
             &fd.r_point,
             k_f,
             k_pub,
@@ -99,107 +94,4 @@ pub fn test_init_messages_with_franking_data_and_proof(
     }
 
     (ms, fds, pis)
-}
-
-// Moderator: Register User
-pub fn test_register_user(
-    moderator: &Moderator,
-    client: &Client,
-    t_expiry: u64,
-) -> (FrankingKey, PublicKey, Signature) {
-    moderator.register_user(&client.id, t_expiry)
-}
-
-// Moderator: Moderate Report
-pub fn test_moderate_report(
-    moderator: &Moderator,
-    k_f: &FrankingKey,
-    t_expiry: u64,
-    m: &[u8],
-    ctx: MessageContext,
-    tag: &RistrettoPoint,
-) -> bool {
-    moderator.moderate(k_f, t_expiry, m, ctx, tag)
-}
-
-// Client: Session Init
-pub fn test_basic_session_init(
-    pk_m: &VerifyingKey,
-    client: &Client,
-    k_f: &FrankingKey,
-    k_pub: &PublicKey,
-    t_expiry: u64,
-    sig: &Signature,
-) -> bool {
-    client.session_init(pk_m, k_f, k_pub, t_expiry, sig)
-}
-
-// Client: Accept Session
-pub fn test_receiver_accept_session(
-    pk_m: &VerifyingKey,
-    sender_id: &[u8; 32],
-    receiver: &Client,
-    k_pub: &PublicKey,
-    t_expiry: u64,
-    sig: &Signature,
-) -> bool {
-    receiver.accept_session(pk_m, sender_id, k_pub, t_expiry, sig)
-}
-
-// Client: Frank Message
-pub fn test_frank_message(
-    sender: &Client,
-    pk_r: &RistrettoPoint,
-    k_f: &FrankingKey,
-    k_pub: &PublicKey,
-    m: &[u8],
-    t_msg: u64,
-) -> FrankingData {
-    let ctx = (sender.id, t_msg);
-    sender.frank(pk_r, k_f, k_pub, m, ctx)
-}
-
-// Client: Verify Message
-pub fn test_verify_message(
-    receiver: &Client,
-    ad: &FrankingData,
-    m: &[u8],
-    ctx: MessageContext,
-    t_expiry: u64,
-) -> RistrettoPoint {
-    receiver.verify(&receiver.pk, ad, m, ctx, t_expiry)
-}
-
-// Common: Serialize Registration
-pub fn test_serialize_registration(
-    id: &[u8; 32],
-    k_pub: &PublicKey,
-    t_expiry: u64,
-) -> [u8; REGISTRATION_SERIALIZATION_LEN] {
-    serialize_registration(id, k_pub, t_expiry)
-}
-
-// ZK: Mac DLog Prove
-pub fn test_zk_mac_dlog_prove(
-    r_point: &RistrettoPoint,
-    k_f: &FrankingKey,
-    k_pub: &PublicKey,
-    tag: &RistrettoPoint,
-    m: &[u8],
-    ctx: MessageContext,
-) -> MacOrDlogZKProof {
-    zk_mac_dlog_prove(r_point, k_f, k_pub, tag, m, ctx)
-}
-
-// ZK: Mac DLog Verify
-pub fn test_zk_mac_dlog_verify(
-    r_point: &RistrettoPoint,
-    k_pub: &PublicKey,
-    pk_r: &RistrettoPoint,
-    tag: &RistrettoPoint,
-    m: &[u8],
-    ctx: MessageContext,
-    pi: &MacOrDlogZKProof,
-) -> bool {
-    zk_mac_dlog_verify(r_point, k_pub, pk_r, tag, m, ctx, pi)
 }

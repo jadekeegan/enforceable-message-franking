@@ -20,8 +20,7 @@ pub fn bench_basic_moderate(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    test_moderate_report(
-                        &moderator,
+                    moderator.moderate(
                         &k_f,
                         t_expiry,
                         ms[j].as_bytes(),

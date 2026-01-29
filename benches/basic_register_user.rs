@@ -10,7 +10,7 @@ pub fn bench_basic_register_user(c: &mut Criterion) {
     // Benchmark
     let mut group = c.benchmark_group("basic.register_user()");
     group.bench_function("basic.register_user()", |b| {
-        b.iter(|| test_register_user(&moderator, &client, t_expiry))
+        b.iter(|| moderator.register_user(&client.id, t_expiry));
     });
     group.finish();
 }

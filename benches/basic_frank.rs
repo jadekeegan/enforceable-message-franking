@@ -19,13 +19,12 @@ pub fn bench_basic_frank(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    test_frank_message(
-                        &sender,
+                    sender.frank(
                         &receiver.pk,
                         &k_f,
                         &k_pub,
-                        ms[j].as_bytes(), // Convert String to &[u8]
-                        t_msg,
+                        ms[j].as_bytes(),
+                        (sender.id, t_msg),
                     );
                 })
             },
