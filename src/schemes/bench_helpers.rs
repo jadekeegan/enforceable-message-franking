@@ -13,6 +13,15 @@ pub fn test_init_moderator_client() -> (Moderator, Client) {
     (moderator, client)
 }
 
+// Set Up Client with Session Keys
+pub fn test_init_client_with_keys(t_expiry: u64) -> (Client, FrankingKey, PublicKey) {
+    let moderator = Moderator::new();
+    let client = Client::new();
+
+    let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
+    (client, k_f, k_pub)
+}
+
 // Set Up Moderator, Sender, and Receiver and Session Keys
 pub fn test_init_full_session_data(
     t_expiry: u64,
@@ -129,4 +138,13 @@ pub fn test_verify_message(
     t_expiry: u64,
 ) -> RistrettoPoint {
     receiver.verify(&receiver.pk, ad, m, ctx, t_expiry)
+}
+
+// Common: Serialize Registration
+pub fn test_serialize_registration(
+    id: &[u8; 32],
+    k_pub: &PublicKey,
+    t_expiry: u64,
+) -> [u8; REGISTRATION_SERIALIZATION_LEN] {
+    serialize_registration(id, k_pub, t_expiry)
 }
