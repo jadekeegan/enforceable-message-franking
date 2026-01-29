@@ -83,3 +83,11 @@ harness = false
 [[bench]]
 name = "serialize_registration"
 harness = false
+
+[[bench]]
+name =  "basic_zk_mac_dlog_prove"
+harness = false
+
+[[bench]]
+name = "basic_zk_mac_dlog_verify"
+harness = false

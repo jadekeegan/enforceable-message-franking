@@ -4,6 +4,7 @@ use rand::distributions::{Alphanumeric, DistString};
 
 use crate::schemes::lib_basic::*;
 use crate::toolbox::lib_common::*;
+use crate::toolbox::lib_mac_dlog_zk_proof::*;
 
 // Initialize Moderator and Client Only
 pub fn test_init_moderator_client() -> (Moderator, Client) {
@@ -69,6 +70,35 @@ pub fn test_init_messages_with_franking_data(
     }
 
     (ms, fds)
+}
+
+// Initialize Messages of Varying Sizes with Franking Data and Proof
+pub fn test_init_messages_with_franking_data_and_proof(
+    sender: &Client,
+    pk_r: &RistrettoPoint,
+    k_f: &FrankingKey,
+    k_pub: &PublicKey,
+    t_msg: u64,
+) -> (Vec<String>, Vec<FrankingData>, Vec<MacOrDlogZKProof>) {
+    let ms = test_basic_init_messages();
+
+    // Generate Franking Data with Proof for Each Message
+    let mut fds: Vec<FrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut pis: Vec<MacOrDlogZKProof> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    for m in &ms {
+        let fd = test_frank_message(sender, pk_r, k_f, k_pub, m.as_bytes(), t_msg);
+        pis.push(test_zk_mac_dlog_prove(
+            &fd.r_point,
+            k_f,
+            k_pub,
+            &fd.tag,
+            m.as_bytes(),
+            (sender.id, t_msg),
+        ));
+        fds.push(fd);
+    }
+
+    (ms, fds, pis)
 }
 
 // Moderator: Register User
@@ -147,4 +177,29 @@ pub fn test_serialize_registration(
     t_expiry: u64,
 ) -> [u8; REGISTRATION_SERIALIZATION_LEN] {
     serialize_registration(id, k_pub, t_expiry)
+}
+
+// ZK: Mac DLog Prove
+pub fn test_zk_mac_dlog_prove(
+    r_point: &RistrettoPoint,
+    k_f: &FrankingKey,
+    k_pub: &PublicKey,
+    tag: &RistrettoPoint,
+    m: &[u8],
+    ctx: MessageContext,
+) -> MacOrDlogZKProof {
+    zk_mac_dlog_prove(r_point, k_f, k_pub, tag, m, ctx)
+}
+
+// ZK: Mac DLog Verify
+pub fn test_zk_mac_dlog_verify(
+    r_point: &RistrettoPoint,
+    k_pub: &PublicKey,
+    pk_r: &RistrettoPoint,
+    tag: &RistrettoPoint,
+    m: &[u8],
+    ctx: MessageContext,
+    pi: &MacOrDlogZKProof,
+) -> bool {
+    zk_mac_dlog_verify(r_point, k_pub, pk_r, tag, m, ctx, pi)
 }

@@ -1,9 +1,10 @@
 use criterion::*;
 use federated_franking_impl::schemes::bench_helpers::*;
+use federated_franking_impl::toolbox::lib_common::*;
 
 pub fn bench_serialize_registration(c: &mut Criterion) {
     // Set Up Session Data
-    let t_expiry = 1_000_000u64;
+    let t_expiry = compute_timestamp(WEEK_OFFSET);
     let (sender, _k_f, k_pub) = test_init_client_with_keys(t_expiry);
 
     // Benchmark
