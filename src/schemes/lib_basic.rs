@@ -1,3 +1,5 @@
+use std::io::Error;
+
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_dlog_zk_proof::*;
 use crate::toolbox::lib_mac_ggm as mac;
@@ -247,7 +249,7 @@ impl Client {
         m: &[u8],
         ctx: MessageContext,
         t_expiry: u64,
-    ) -> RistrettoPoint {
+    ) -> Result<RistrettoPoint, Error> {
         // Unpack context
         let (_id, t_msg) = ctx;
 
@@ -264,9 +266,14 @@ impl Client {
         let is_t_valid = t_msg < t_expiry;
         let is_pi_valid = zk_mac_dlog_verify(r_point, k_pub, pk_r, tag, m, ctx, pi);
 
-        assert!(is_r_valid && is_t_valid && is_pi_valid);
-
-        *tag
+        if is_r_valid && is_t_valid && is_pi_valid {
+            Ok(*tag)
+        } else {
+            Err(Error::new(
+                std::io::ErrorKind::InvalidData,
+                "Franking data verification failed.",
+            ))
+        }
     }
 }
 

@@ -9,7 +9,7 @@ pub fn bench_basic_frank(c: &mut Criterion) {
         test_basic_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes
-    let ms = test_basic_init_messages();
+    let ms = test_init_messages();
     let t_msg = compute_timestamp(0);
 
     // Benchmark

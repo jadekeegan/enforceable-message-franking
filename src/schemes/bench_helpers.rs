@@ -31,17 +31,23 @@ pub fn test_basic_init_client_with_keys(t_expiry: u64) -> (Client, FrankingKey, 
 pub fn test_basic_init_full_session_data(
     t_expiry: u64,
 ) -> (Moderator, Client, Client, FrankingKey, PublicKey, Signature) {
-    let moderator = Moderator::new();
-    let sender = Client::new();
+    let moderator = Moderator::new(); // KeyGenMod
+    let sender = Client::new(); // KeyGenUser
     let receiver = Client::new();
 
+    // Register Sender for Keys/Sig
     let (k_f, k_pub, sig) = moderator.register_user(&sender.id, t_expiry);
 
     (moderator, sender, receiver, k_f, k_pub, sig)
 }
 
+// Initialize Message of Given Size
+pub fn test_init_message(msg_size: usize) -> String {
+    Alphanumeric.sample_string(&mut rand::thread_rng(), msg_size)
+}
+
 // Initialize Messages of Varying Sizes
-pub fn test_basic_init_messages() -> Vec<String> {
+pub fn test_init_messages() -> Vec<String> {
     let mut ms: Vec<String> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for msg_size in MSG_SIZE_SCALE {
         ms.push(Alphanumeric.sample_string(&mut rand::thread_rng(), msg_size));
@@ -56,7 +62,7 @@ pub fn test_basic_init_messages_with_tags(
     client: &Client,
     t_msg: u64,
 ) -> (Vec<String>, Vec<RistrettoPoint>) {
-    let ms = test_basic_init_messages();
+    let ms = test_init_messages();
 
     // Generate Tags for Each Message
     let mut tags: Vec<RistrettoPoint> = Vec::with_capacity(MSG_SIZE_SCALE.len());
@@ -75,7 +81,7 @@ pub fn test_basic_init_messages_with_franking_data(
     k_pub: &PublicKey,
     t_msg: u64,
 ) -> (Vec<String>, Vec<FrankingData>) {
-    let ms = test_basic_init_messages();
+    let ms = test_init_messages();
 
     // Generate Franking Data for Each Message
     let mut fds: Vec<FrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
@@ -94,7 +100,7 @@ pub fn test_basic_init_messages_with_franking_data_and_proof(
     k_pub: &PublicKey,
     t_msg: u64,
 ) -> (Vec<String>, Vec<FrankingData>, Vec<zkp::MacOrDlogZKProof>) {
-    let ms = test_basic_init_messages();
+    let ms = test_init_messages();
 
     // Generate Franking Data with Proof for Each Message
     let mut fds: Vec<FrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());

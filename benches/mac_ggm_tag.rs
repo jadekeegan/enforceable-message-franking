@@ -10,7 +10,7 @@ pub fn bench_ggm_mac_tag(c: &mut Criterion) {
     let (client, k_f, _k_pub) = test_basic_init_client_with_keys(t_expiry);
 
     // Generate test messages of various sizes
-    let ms = test_basic_init_messages();
+    let ms = test_init_messages();
     let t_msg = compute_timestamp(0);
 
     // Benchmark
