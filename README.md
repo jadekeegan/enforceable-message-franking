@@ -12,16 +12,17 @@ Run `cargo bench -- {group}` to run benchmarks for a particular group of benchma
 - `mac_ggm`: prefixes all functions used in the Mac GGM primitive
 - `common`: prefixes all scheme agnostic utility functions
 
-Run `cargo bench --bench {scheme}_{method}` to run benchmarks for a specific method. For example, `cargo bench --bench basic_frank` would run all benchmarks for the basic scheme's franking method.
+Run `cargo bench --bench {scheme}_{method}` to run benchmarks for a specific method. For example, `cargo bench --bench basic_accept_session` would run the benchmark for the basic scheme's `accept_session` method.
 
 Here are a few other useful command line prompts (maybe turn into scripts):
 
 ```bash
-# Run benchmarks for frank from both the basic and elgamal schemes.
-cargo bench -- frank "message of size 100"
+# Run benchmarks for frank from both the basic and elgamal schemes
+# for messages of size 100.
+cargo bench -- frank "size 100"
 
 # Run benchmarks for the core functions of the basic scheme.
-cargo bench --bench basic_frank --bench basic_verify --bench basic_moderate
+cargo bench -- "basic/frank" "basic/verify" "basic/moderate"
 ```
 
 Criterion also generates HTML reports for all benchmarks run. To view these, you may run `start target/criterion/report/index.html` in the root directory.
