@@ -14,7 +14,7 @@ pub fn bench_basic_moderate(c: &mut Criterion) {
         test_basic_init_messages_with_franking_data(&sender, &receiver.pk, &k_f, &k_pub, t_msg);
 
     // Benchmark
-    let mut group = c.benchmark_group("basic");
+    let mut group = c.benchmark_group("basic/moderate");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
             format!("moderate() message of size {}", msg_size),

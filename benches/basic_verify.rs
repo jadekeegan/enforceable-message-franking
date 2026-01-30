@@ -5,7 +5,8 @@ use federated_franking_impl::toolbox::lib_common::*;
 pub fn bench_basic_verify(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (_moderator, sender, receiver, k_f, k_pub, _sig) = test_basic_init_full_session_data(t_expiry);
+    let (_moderator, sender, receiver, k_f, k_pub, _sig) =
+        test_basic_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes with corresponding franking data
     let t_msg = compute_timestamp(0);
@@ -13,7 +14,7 @@ pub fn bench_basic_verify(c: &mut Criterion) {
         test_basic_init_messages_with_franking_data(&sender, &receiver.pk, &k_f, &k_pub, t_msg);
 
     // Benchmark
-    let mut group = c.benchmark_group("basic");
+    let mut group = c.benchmark_group("basic/verify");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
             format!("verify() message of size {}", msg_size),

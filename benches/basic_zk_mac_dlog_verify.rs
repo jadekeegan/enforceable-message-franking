@@ -21,7 +21,7 @@ pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
     );
 
     // Benchmark
-    let mut group = c.benchmark_group("basic");
+    let mut group = c.benchmark_group("basic/zk");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
             format!("zk_mac_dlog_verify() message of size {}", msg_size),
