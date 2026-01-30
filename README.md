@@ -23,3 +23,5 @@ cargo bench -- frank "message of size 100"
 # Run benchmarks for the core functions of the basic scheme.
 cargo bench --bench basic_frank --bench basic_verify --bench basic_moderate
 ```
+
+Criterion also generates HTML reports for all benchmarks run. To view these, you may run `start target/criterion/report/index.html` in the root directory.
