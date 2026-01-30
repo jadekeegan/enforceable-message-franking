@@ -11,7 +11,9 @@ pub fn bench_basic_accept_session(c: &mut Criterion) {
     // Benchmark
     let mut group = c.benchmark_group("basic");
     group.bench_function("accept_session()", |b| {
-        b.iter(|| receiver.accept_session(&moderator.pk, &sender.id, &k_pub, t_expiry, &sig))
+        b.iter(|| {
+            black_box(receiver.accept_session(&moderator.pk, &sender.id, &k_pub, t_expiry, &sig))
+        })
     });
     group.finish();
 }

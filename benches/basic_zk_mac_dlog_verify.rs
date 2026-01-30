@@ -28,7 +28,7 @@ pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    zkp::zk_mac_dlog_verify(
+                    black_box(zkp::zk_mac_dlog_verify(
                         &fds[j].r_point,
                         &k_pub,
                         &receiver.pk,
@@ -36,7 +36,7 @@ pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
                         ms[j].as_bytes(), // Convert String to &[u8]
                         (sender.id, t_msg),
                         &pis[j],
-                    );
+                    ));
                 })
             },
         );

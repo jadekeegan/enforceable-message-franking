@@ -21,7 +21,7 @@ pub fn bench_ggm_mac_tag(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    mac_ggm::tag(&k_f, ms[j].as_bytes(), (client.id, t_msg));
+                    black_box(mac_ggm::tag(&k_f, ms[j].as_bytes(), (client.id, t_msg)));
                 })
             },
         );

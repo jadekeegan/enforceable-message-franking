@@ -21,13 +21,13 @@ pub fn bench_basic_moderate(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    moderator.moderate(
+                    black_box(moderator.moderate(
                         &k_f,
                         t_expiry,
                         ms[j].as_bytes(),
                         (sender.id, t_msg),
                         &fds[j].tag,
-                    );
+                    ));
                 })
             },
         );

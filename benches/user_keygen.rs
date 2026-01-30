@@ -3,7 +3,7 @@ use federated_franking_impl::toolbox::lib_common::user_keygen;
 
 pub fn bench_user_keygen(c: &mut Criterion) {
     let mut group = c.benchmark_group("common");
-    group.bench_function("user_keygen()", |b| b.iter(user_keygen));
+    group.bench_function("user_keygen()", |b| b.iter(|| black_box(user_keygen())));
     group.finish();
 }
 

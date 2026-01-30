@@ -9,7 +9,7 @@ pub fn bench_compute_timestamp(c: &mut Criterion) {
             &offset,
             |b, &offset| {
                 b.iter(|| {
-                    compute_timestamp(offset);
+                    black_box(compute_timestamp(offset));
                 })
             },
         );

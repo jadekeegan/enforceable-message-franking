@@ -22,7 +22,7 @@ pub fn bench_ggm_hash_context(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    mac_ggm::hash_context(ms[j].as_bytes(), ctx);
+                    black_box(mac_ggm::hash_context(ms[j].as_bytes(), ctx));
                 })
             },
         );

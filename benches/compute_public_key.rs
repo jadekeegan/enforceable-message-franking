@@ -10,7 +10,7 @@ pub fn bench_compute_public_key(c: &mut Criterion) {
     // Benchmark
     let mut group = c.benchmark_group("common");
     group.bench_function("compute_public_key()", |b| {
-        b.iter(|| compute_public_key(&k_f))
+        b.iter(|| black_box(compute_public_key(&k_f)))
     });
     group.finish();
 }
