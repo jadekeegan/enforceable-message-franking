@@ -19,7 +19,7 @@ pub fn test_basic_init_moderator_client() -> (Moderator, Client) {
 }
 
 // Set Up Client with Session Keys
-pub fn test_basic_init_client_with_keys(t_expiry: u64) -> (Client, FrankingKey, PublicKey) {
+pub fn test_basic_init_client_with_keys(t_expiry: u64) -> (Client, FrankingKey, FrankingPublicKey) {
     let moderator = Moderator::new();
     let client = Client::new();
 
@@ -30,7 +30,14 @@ pub fn test_basic_init_client_with_keys(t_expiry: u64) -> (Client, FrankingKey, 
 // Set Up Moderator, Sender, and Receiver and Session Keys
 pub fn test_basic_init_full_session_data(
     t_expiry: u64,
-) -> (Moderator, Client, Client, FrankingKey, PublicKey, Signature) {
+) -> (
+    Moderator,
+    Client,
+    Client,
+    FrankingKey,
+    FrankingPublicKey,
+    Signature,
+) {
     let moderator = Moderator::new(); // KeyGenMod
     let sender = Client::new(); // KeyGenUser
     let receiver = Client::new();
@@ -76,9 +83,9 @@ pub fn test_basic_init_messages_with_tags(
 // Initialize Messages of Varying Sizes with Franking Data
 pub fn test_basic_init_messages_with_franking_data(
     sender: &Client,
-    pk_r: &RistrettoPoint,
+    pk_r: &ClientPublicKey,
     k_f: &FrankingKey,
-    k_pub: &PublicKey,
+    k_pub: &FrankingPublicKey,
     t_msg: u64,
 ) -> (Vec<String>, Vec<FrankingData>) {
     let ms = test_init_messages();
@@ -95,9 +102,9 @@ pub fn test_basic_init_messages_with_franking_data(
 // Initialize Messages of Varying Sizes with Franking Data and Proof
 pub fn test_basic_init_messages_with_franking_data_and_proof(
     sender: &Client,
-    pk_r: &RistrettoPoint,
+    pk_r: &ClientPublicKey,
     k_f: &FrankingKey,
-    k_pub: &PublicKey,
+    k_pub: &FrankingPublicKey,
     t_msg: u64,
 ) -> (Vec<String>, Vec<FrankingData>, Vec<zkp::MacOrDlogZKProof>) {
     let ms = test_init_messages();

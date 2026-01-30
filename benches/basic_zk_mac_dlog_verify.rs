@@ -7,7 +7,8 @@ use federated_franking_impl::toolbox::lib_mac_dlog_zk_proof as zkp;
 pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (_moderator, sender, receiver, k_f, k_pub, _sig) = test_basic_init_full_session_data(t_expiry);
+    let (_moderator, sender, receiver, k_f, k_pub, _sig) =
+        test_basic_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes with franking data and proofs
     let t_msg = compute_timestamp(0);
@@ -20,10 +21,10 @@ pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
     );
 
     // Benchmark
-    let mut group = c.benchmark_group("basic.zk_mac_dlog_verify()");
+    let mut group = c.benchmark_group("basic");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
-            format!("basic.zk_mac_dlog_verify() message of size {}", msg_size),
+            format!("zk_mac_dlog_verify() message of size {}", msg_size),
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {

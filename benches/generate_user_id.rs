@@ -2,7 +2,7 @@ use criterion::*;
 use federated_franking_impl::toolbox::lib_common::generate_user_id;
 
 pub fn bench_generate_user_id(c: &mut Criterion) {
-    let mut group = c.benchmark_group("generate_user_id()");
+    let mut group = c.benchmark_group("common");
     group.bench_function("generate_user_id()", |b| b.iter(generate_user_id));
     group.finish();
 }

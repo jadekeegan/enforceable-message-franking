@@ -13,10 +13,10 @@ pub fn bench_basic_frank(c: &mut Criterion) {
     let t_msg = compute_timestamp(0);
 
     // Benchmark
-    let mut group = c.benchmark_group("basic.frank()");
+    let mut group = c.benchmark_group("basic");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
-            format!("basic.frank() message of size {}", msg_size),
+            format!("frank() message of size {}", msg_size),
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {

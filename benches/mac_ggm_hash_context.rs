@@ -15,10 +15,10 @@ pub fn bench_ggm_hash_context(c: &mut Criterion) {
     let ctx = (client.id, t_msg);
 
     // Benchmark
-    let mut group = c.benchmark_group("mac_ggm.hash_context()");
+    let mut group = c.benchmark_group("mac_ggm");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
-            format!("mac_ggm.hash_context() message of size {}", msg_size),
+            format!("hash_context() message of size {}", msg_size),
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {

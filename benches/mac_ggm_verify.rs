@@ -14,10 +14,10 @@ pub fn bench_ggm_mac_verify(c: &mut Criterion) {
     let t_msg = compute_timestamp(0);
 
     // Benchmark
-    let mut group = c.benchmark_group("mac_ggm.verify()");
+    let mut group = c.benchmark_group("mac_ggm");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
-            format!("mac_ggm.verify() message of size {}", msg_size),
+            format!("verify() message of size {}", msg_size),
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {

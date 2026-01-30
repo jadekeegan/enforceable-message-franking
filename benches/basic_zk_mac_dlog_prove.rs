@@ -15,10 +15,10 @@ pub fn bench_basic_zk_mac_dlog_prove(c: &mut Criterion) {
         test_basic_init_messages_with_franking_data(&sender, &receiver.pk, &k_f, &k_pub, t_msg);
 
     // Benchmark
-    let mut group = c.benchmark_group("basic.zk_mac_dlog_prove()");
+    let mut group = c.benchmark_group("basic");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
-            format!("basic.zk_mac_dlog_prove() message of size {}", msg_size),
+            format!("zk_mac_dlog_prove() message of size {}", msg_size),
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {

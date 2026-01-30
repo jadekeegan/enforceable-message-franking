@@ -8,9 +8,11 @@ pub fn bench_compute_public_key(c: &mut Criterion) {
     let (_client, k_f, _k_pub) = test_basic_init_client_with_keys(t_expiry);
 
     // Benchmark
-    c.bench_function("compute_public_key()", |b| {
+    let mut group = c.benchmark_group("common");
+    group.bench_function("compute_public_key()", |b| {
         b.iter(|| compute_public_key(&k_f))
     });
+    group.finish();
 }
 
 criterion_group!(benches, bench_compute_public_key);

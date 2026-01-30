@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::{RistrettoPoint, Scalar};
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{SigningKey, VerifyingKey};
 
 use rand::RngCore;
 use rand::rngs::OsRng;
@@ -19,20 +19,28 @@ pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
 
 // Type Definitions
 pub type FrankingKey = (Scalar, Scalar);
-pub type PublicKey = (RistrettoPoint, RistrettoPoint);
+pub type FrankingPublicKey = (RistrettoPoint, RistrettoPoint);
 pub type MessageContext = ([u8; 32], u64); // (id, t_msg)
+pub type ClientSecretKey = Scalar;
+pub type ClientPublicKey = RistrettoPoint;
 
 // Structs
 pub struct FrankingData {
-    pub k_pub: PublicKey,        // Public Key (g0, g1)
-    pub r_point: RistrettoPoint, // Ristretto Point R
-    pub e_r: RistrettoPoint,     // Ephemeral Ristretto Point E_r
-    pub tag: RistrettoPoint,     // MAC Tag t
-    pub pi: MacOrDlogZKProof,    // ZK Proof of Knowledge of MAC Tag
+    pub k_pub: FrankingPublicKey, // Public Key (g0, g1)
+    pub r_point: RistrettoPoint,  // Ristretto Point R
+    pub e_r: RistrettoPoint,      // Ephemeral Ristretto Point E_r
+    pub tag: RistrettoPoint,      // MAC Tag t
+    pub pi: MacOrDlogZKProof,     // ZK Proof of Knowledge of MAC Tag
 }
 
 // Compute Timestamps for expiry and message
 /// Returns the current UNIX timestamp in seconds, plus any offset.
+///
+/// # Arguments
+/// * `offset_secs` - Number of seconds to add to the current timestamp
+///
+/// # Returns
+/// * `u64` - Computed timestamp
 pub fn compute_timestamp(offset_secs: u64) -> u64 {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -43,27 +51,35 @@ pub fn compute_timestamp(offset_secs: u64) -> u64 {
 }
 
 // Moderator Key Generation
-/// Generates a moderator signing key.
+/// Generates moderator keys.
 ///
 /// # Arguments
 /// * None
 ///
 /// # Returns
 /// * `SigningKey` - Moderator Signing Key
-pub fn moderator_keygen() -> SigningKey {
-    SigningKey::generate(&mut OsRng)
+/// * `VerifyingKey` - Moderator Verifying Key
+pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
+    let sk = SigningKey::generate(&mut OsRng);
+    let pk = sk.verifying_key();
+
+    (sk, pk)
 }
 
 // User Key Generation
-/// Generates a user secret key as a random scalar.
+/// Generates user keys
 ///
 /// # Arguments
 /// * None
 ///
 /// # Returns
-/// * `Scalar` - User Secret Key
-pub fn user_keygen() -> Scalar {
-    Scalar::random(&mut OsRng)
+/// * `ClientSecretKey` - User Secret Key
+/// * `ClientPublicKey` - User Public Key
+pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
+    let sk = Scalar::random(&mut OsRng);
+    let pk = &sk * G;
+
+    (sk, pk)
 }
 
 // Compute Public Key from Franking Key
@@ -73,12 +89,12 @@ pub fn user_keygen() -> Scalar {
 /// * `k_f` - Franking Key (x0, x1)
 ///
 /// # Returns
-/// * `PublicKey` - Public Key (g0, g1)
-pub fn compute_public_key(k_f: &FrankingKey) -> PublicKey {
+/// * `FrankingPublicKey` - Public Key (g0, g1)
+pub fn compute_public_key(k_f: &FrankingKey) -> FrankingPublicKey {
     let (x0, x1) = k_f;
 
-    let g0: RistrettoPoint = x0 * G;
-    let g1: RistrettoPoint = x1 * G;
+    let g0 = x0 * G;
+    let g1 = x1 * G;
 
     (g0, g1)
 }
@@ -110,7 +126,7 @@ pub fn generate_user_id() -> [u8; 32] {
 /// * `[u8; REGISTRATION_SERIALIZATION_LEN]` - Serialized Registration Data
 pub fn serialize_registration(
     id: &[u8; 32],
-    k_pub: &PublicKey,
+    k_pub: &FrankingPublicKey,
     t_expiry: u64,
 ) -> [u8; REGISTRATION_SERIALIZATION_LEN] {
     let mut msg = [0u8; REGISTRATION_SERIALIZATION_LEN];
@@ -153,8 +169,8 @@ mod tests {
 
     #[test]
     fn test_moderator_keygen_is_unique() {
-        let sk1 = moderator_keygen();
-        let sk2 = moderator_keygen();
+        let (sk1, pk1) = moderator_keygen();
+        let (sk2, pk2) = moderator_keygen();
 
         assert_ne!(
             sk1.to_bytes(),
@@ -162,21 +178,26 @@ mod tests {
             "Generated secret keys are not unique"
         );
         assert_ne!(
-            sk1.verifying_key().to_bytes(),
-            sk2.verifying_key().to_bytes(),
+            pk1.to_bytes(),
+            pk2.to_bytes(),
             "Generated public keys are not unique"
         );
     }
 
     #[test]
     fn test_user_keygen_is_unique() {
-        let sk1 = user_keygen();
-        let sk2 = user_keygen();
+        let (sk1, pk1) = user_keygen();
+        let (sk2, pk2) = user_keygen();
 
         assert_ne!(
             sk1.to_bytes(),
             sk2.to_bytes(),
             "Generated user secret keys are not unique"
+        );
+        assert_ne!(
+            pk1.compress().to_bytes(),
+            pk2.compress().to_bytes(),
+            "Generated user public keys are not unique"
         );
     }
 

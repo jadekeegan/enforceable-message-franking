@@ -2,9 +2,9 @@ use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use rand::rngs::OsRng;
 
-use crate::toolbox::lib_common::MessageContext;
+use crate::toolbox::lib_common::{ClientPublicKey, MessageContext};
 use crate::toolbox::{
-    lib_common::{FrankingKey, PublicKey},
+    lib_common::{FrankingKey, FrankingPublicKey},
     lib_mac_ggm::hash_context,
 };
 
@@ -40,7 +40,7 @@ pub struct MacOrDlogZKProof {
 pub fn zk_mac_dlog_prove(
     r_point: &RistrettoPoint,
     k_f: &FrankingKey,
-    k_pub: &PublicKey,
+    k_pub: &FrankingPublicKey,
     tag: &RistrettoPoint,
     m: &[u8],
     ctx: MessageContext,
@@ -113,8 +113,8 @@ pub fn zk_mac_dlog_prove(
 /// * `bool` - indicating validity (true) or invalidity (false)
 pub fn zk_mac_dlog_verify(
     r_point: &RistrettoPoint,
-    k_pub: &PublicKey,
-    _pk_r: &RistrettoPoint,
+    k_pub: &FrankingPublicKey,
+    _pk_r: &ClientPublicKey,
     tag: &RistrettoPoint,
     _m: &[u8],
     _ctx: MessageContext,
@@ -175,7 +175,7 @@ mod test {
 
     fn test_dummy_params() -> (
         FrankingKey,
-        PublicKey,
+        FrankingPublicKey,
         RistrettoPoint,
         &'static [u8],
         MessageContext,

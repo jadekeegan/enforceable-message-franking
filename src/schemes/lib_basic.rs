@@ -25,8 +25,8 @@ pub struct Moderator {
 impl Moderator {
     // KeyGenMod(1^lambda)
     pub fn new() -> Self {
-        let signing_key = moderator_keygen();
-        let verifying_key = signing_key.verifying_key();
+        let (signing_key, verifying_key) = moderator_keygen();
+
         Moderator {
             pk: verifying_key,
             sk: signing_key,
@@ -49,7 +49,7 @@ impl Moderator {
         &self,
         id: &[u8; 32],
         t_expiry: u64,
-    ) -> (FrankingKey, PublicKey, Signature) {
+    ) -> (FrankingKey, FrankingPublicKey, Signature) {
         // Franking Key Generation (x0, x1)
         let k_f = mac::keygen();
 
@@ -99,9 +99,9 @@ impl Moderator {
 
 // Client Properties
 pub struct Client {
-    pub id: [u8; 32],       // User Identifier
-    pub pk: RistrettoPoint, // User Public Key (g^sk)
-    sk: Scalar,             // User Secret Key
+    pub id: [u8; 32],        // User Identifier
+    pub pk: ClientPublicKey, // User Public Key (g^sk)
+    sk: ClientSecretKey,     // User Secret Key
 }
 
 // Client Implementation
@@ -109,8 +109,7 @@ pub struct Client {
 impl Client {
     // KeyGenUser(1^lambda)
     pub fn new() -> Self {
-        let sk = user_keygen();
-        let pk = &sk * G;
+        let (sk, pk) = user_keygen();
         Client {
             pk,
             sk,
@@ -135,7 +134,7 @@ impl Client {
         &self,
         pk_m: &VerifyingKey,
         k_f: &FrankingKey,
-        k_pub: &PublicKey,
+        k_pub: &FrankingPublicKey,
         t_expiry: u64,
         sig: &Signature,
     ) -> bool {
@@ -167,7 +166,7 @@ impl Client {
         &self,
         pk_m: &VerifyingKey,
         id: &[u8; 32],
-        k_pub: &PublicKey,
+        k_pub: &FrankingPublicKey,
         t_expiry: u64,
         sig: &Signature,
     ) -> bool {
@@ -184,7 +183,7 @@ impl Client {
     /// # Arguments
     ///
     /// * `pk_m` - Moderator Public Key
-    /// * `pk_r` - Recipient Public Key
+    /// * `pk_r` - Recipient Public Key (ClientPublicKey)
     /// * `k_f` - Franking Key
     /// * `k_pub` - Public Key
     /// * `id` - User Identifier
@@ -196,9 +195,9 @@ impl Client {
     pub fn frank(
         &self,
         // _pk_m: &VerifyingKey, (Not Used in this Implementation)
-        pk_r: &RistrettoPoint,
+        pk_r: &ClientPublicKey,
         k_f: &FrankingKey,
-        k_pub: &PublicKey,
+        k_pub: &FrankingPublicKey,
         m: &[u8],
         ctx: MessageContext,
     ) -> FrankingData {
@@ -232,7 +231,7 @@ impl Client {
     ///
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
-    /// * `pk_R` - Recipient's Public Key
+    /// * `pk_R` - Recipient's Public Key (ClientPublicKey)
     /// * `m` - Message to be Verified
     /// * `ad` - Franking Data
     /// * `id` - User Identifier
@@ -244,7 +243,7 @@ impl Client {
     pub fn verify(
         &self,
         // pk_m: &VerifyingKey,
-        pk_r: &RistrettoPoint,
+        pk_r: &ClientPublicKey,
         ad: &FrankingData,
         m: &[u8],
         ctx: MessageContext,

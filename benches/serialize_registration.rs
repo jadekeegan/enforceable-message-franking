@@ -8,7 +8,7 @@ pub fn bench_serialize_registration(c: &mut Criterion) {
     let (sender, _k_f, k_pub) = test_basic_init_client_with_keys(t_expiry);
 
     // Benchmark
-    let mut group = c.benchmark_group("serialize_registration()");
+    let mut group = c.benchmark_group("common");
     group.bench_function("serialize_registration()", |b| {
         b.iter(|| serialize_registration(&sender.id, &k_pub, t_expiry))
     });
