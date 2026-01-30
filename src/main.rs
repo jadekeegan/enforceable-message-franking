@@ -3,6 +3,8 @@ use federated_franking_impl::toolbox::lib_common::*;
 
 use clap::Parser;
 
+// Macro for Printing Out Status Messages for Logs
+/// Usage: status!(condition, "Success Message", "Failure Message");
 macro_rules! status {
     ($cond:expr, $success:expr, $failure:expr) => {
         if $cond {
@@ -12,6 +14,7 @@ macro_rules! status {
         }
     };
 }
+
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
