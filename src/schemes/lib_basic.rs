@@ -5,7 +5,6 @@ use crate::toolbox::lib_mac_dlog_zk_proof::*;
 use crate::toolbox::lib_mac_ggm as mac;
 
 // Ristretto
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 
 use ed25519_dalek::Signature;
@@ -208,7 +207,7 @@ impl Client {
         let r = alpha * pk_r;
 
         // Compute E_r = g^alpha
-        let e_r = &alpha * G;
+        let e_r = RistrettoPoint::mul_base(&alpha);
 
         // Compute MAC Tag t
         let tag = mac::tag(k_f, m, ctx);
@@ -306,7 +305,7 @@ mod test {
         let (x0, x1) = k_f;
         let (g0, g1) = k_pub;
 
-        assert!(&x0 * G == g0);
-        assert!(&x1 * G == g1);
+        assert!(RistrettoPoint::mul_base(&x0) == g0);
+        assert!(RistrettoPoint::mul_base(&x1) == g1);
     }
 }

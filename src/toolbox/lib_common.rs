@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::{SigningKey, VerifyingKey};
 
@@ -77,7 +76,7 @@ pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
 /// * `ClientPublicKey` - User Public Key
 pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
     let sk = Scalar::random(&mut OsRng);
-    let pk = &sk * G;
+    let pk = RistrettoPoint::mul_base(&sk);
 
     (sk, pk)
 }
@@ -93,8 +92,8 @@ pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
 pub fn compute_public_key(k_f: &FrankingKey) -> FrankingPublicKey {
     let (x0, x1) = k_f;
 
-    let g0 = x0 * G;
-    let g1 = x1 * G;
+    let g0 = RistrettoPoint::mul_base(x0);
+    let g1 = RistrettoPoint::mul_base(x1);
 
     (g0, g1)
 }
@@ -209,8 +208,8 @@ mod tests {
         let k_f = (x0, x1);
         let (g0, g1) = compute_public_key(&k_f);
 
-        assert_eq!(g0, &x0 * G, "Computed g0 is incorrect");
-        assert_eq!(g1, &x1 * G, "Computed g1 is incorrect");
+        assert_eq!(g0, RistrettoPoint::mul_base(&x0), "Computed g0 is incorrect");
+        assert_eq!(g1, RistrettoPoint::mul_base(&x1), "Computed g1 is incorrect");
     }
 
     #[test]

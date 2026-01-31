@@ -68,7 +68,7 @@ pub fn tag(k_f: &FrankingKey, m: &[u8], ctx: MessageContext) -> RistrettoPoint {
     // g^(x0 + x1 * H(m))
     let exp = *x0 + (*x1 * h_m);
 
-    &exp * G
+    RistrettoPoint::mul_base(&exp)
 }
 
 // Mac Tag Verification
@@ -138,7 +138,7 @@ mod tests {
 
         let tag = tag(&k_f, m, ctx);
         let expected_exp = k_f.0 + (k_f.1 * hash_context(m, ctx));
-        let expected_tag = &expected_exp * G;
+        let expected_tag = RistrettoPoint::mul_base(&expected_exp);
 
         assert_eq!(tag, expected_tag, "Computed MAC tag is incorrect");
     }
