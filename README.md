@@ -23,6 +23,9 @@ cargo bench -- frank "size 100"
 
 # Run benchmarks for the core functions of the basic scheme.
 cargo bench -- "basic/frank" "basic/verify" "basic/moderate"
+
+# Run benchmarks for the ZK proofs of the basic scheme.
+cargo bench -- "basic/zk"
 ```
 
 Criterion also generates HTML reports for all benchmarks run. To view these, you may run `start target/criterion/report/index.html` in the root directory.

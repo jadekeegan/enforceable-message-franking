@@ -5,11 +5,8 @@ cargo clean
 echo "\n\nBuilding All Packages!\n\n"
 cargo build
 
-echo "\n\nRunning Computation Time Benchmarks!\n\n"
-cargo bench
-
-echo "\n\nRunning Basic Scheme!\n\n"
-cargo run -- --basic
+echo "\n\nRunning Basic Core Functions Scheme!\n\n"
+cargo bench -- "basic/frank" "basic/verify" "basic/moderate"
 
 echo "\n\nGenerating Benchmark Tables!\n\n"
 python3 scripts/generate_table.py
