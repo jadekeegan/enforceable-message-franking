@@ -161,16 +161,7 @@ impl Client {
         t_expiry: u64,
         sig: &Signature,
     ) -> bool {
-        // Verify FrankingKey and PublicKey
-        let computed_k_pub = compute_public_key(k_f);
-        let is_k_pub_valid = k_pub == &computed_k_pub;
-
-        // Serialize message registration data and verify signature
-        let data: [u8; REGISTRATION_SERIALIZATION_LEN] =
-            serialize_registration(&self.id, k_pub, t_expiry);
-        let is_sig_valid = pk_m.verify(&data, sig).is_ok();
-
-        is_k_pub_valid && is_sig_valid
+        session_init(&self.id, pk_m, k_f, k_pub, t_expiry, sig)
     }
 
     // AcceptSession Function
@@ -193,11 +184,7 @@ impl Client {
         t_expiry: u64,
         sig: &Signature,
     ) -> bool {
-        // Serialize message registration data and verify signature
-        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
-
-        // Verify signature
-        pk_m.verify(&msg, sig).is_ok()
+        accept_session(pk_m, id, k_pub, t_expiry, sig)
     }
 
     // Frank Function

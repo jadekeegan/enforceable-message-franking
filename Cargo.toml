@@ -41,11 +41,11 @@ name = "basic_moderate"
 harness = false
 
 [[bench]]
-name = "basic_session_init"
+name = "session_init"
 harness = false
 
 [[bench]]
-name = "basic_accept_session"
+name = "accept_session"
 harness = false
 
 [[bench]]

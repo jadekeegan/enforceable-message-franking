@@ -1,10 +1,11 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use curve25519_dalek::{RistrettoPoint, Scalar};
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use rand::RngCore;
 use rand::rngs::OsRng;
+use signature::Verifier;
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
@@ -111,6 +112,64 @@ pub fn generate_user_id() -> [u8; 32] {
     OsRng.fill_bytes(&mut id);
 
     id
+}
+
+// Session Init
+/// Initializes a session for a client.
+///
+/// # Arguments
+/// * `id` - User Identifier
+/// * `pk_m` - Moderator Verifying Key
+/// * `k_f` - Franking Key
+/// * `k_pub` - Public Key
+/// * `t_expiry` - Signature Expiry Time
+/// * `sig` - Moderator Signature on User Registration
+///
+/// # Returns
+/// * `bool` - indicating validity (true) or invalidity (false)
+pub fn session_init(
+    id: &[u8; 32],
+    pk_m: &VerifyingKey,
+    k_f: &FrankingKey,
+    k_pub: &FrankingPublicKey,
+    t_expiry: u64,
+    sig: &Signature,
+) -> bool {
+    // Verify FrankingKey and PublicKey
+    let computed_k_pub = compute_public_key(k_f);
+    let is_k_pub_valid = k_pub == &computed_k_pub;
+
+    // Serialize message registration data and verify signature
+    let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
+    let is_sig_valid = pk_m.verify(&data, sig).is_ok();
+
+    is_k_pub_valid && is_sig_valid
+}
+
+// Accept Session
+/// Determines if another user's session should be accepted.
+///
+/// # Arguments
+/// * `pk_m` - Moderator Verifying Key
+/// * `id` - User Identifier
+/// * `k_pub` - Public Key
+/// * `t_expiry` - Signature Expiry Time
+/// * `sig` - Moderator Signature on User Registration
+///
+/// # Returns
+/// * `bool` - indicating acceptance (true) or rejection (false)
+pub fn accept_session(
+    pk_m: &VerifyingKey,
+    id: &[u8; 32],
+    k_pub: &FrankingPublicKey,
+    t_expiry: u64,
+    sig: &Signature,
+) -> bool {
+    // Serialize message registration data and verify signature
+    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
+
+    // Verify signature
+    pk_m.verify(&msg, sig).is_ok()
 }
 
 // Serialize User Registration Data
