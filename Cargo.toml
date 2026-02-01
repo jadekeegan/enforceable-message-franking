@@ -99,3 +99,15 @@ harness = false
 [[bench]]
 name = "mac_ggm_verify"
 harness = false
+
+[[bench]]
+name = "elgamal_enc_keygen"
+harness = false
+
+[[bench]]
+name = "elgamal_enc_encrypt"
+harness = false
+
+[[bench]]
+name = "elgamal_enc_decrypt"
+harness = false
