@@ -9,7 +9,7 @@ use curve25519_dalek::{RistrettoPoint, Scalar};
 
 use ed25519_dalek::Signature;
 // Signature
-use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
 
 // Structs
@@ -72,20 +72,7 @@ impl Moderator {
         id: &[u8; 32],
         t_expiry: u64,
     ) -> (FrankingKey, FrankingPublicKey, Signature) {
-        // Franking Key Generation (x0, x1)
-        let k_f = mac::keygen();
-
-        // Public Key Generation (g^x0, g^x1)
-        let k_pub = compute_public_key(&k_f);
-
-        // Serialize registration data (id || k_pub || t_expiry)
-        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] =
-            serialize_registration(id, &k_pub, t_expiry);
-
-        // Signature over registration data
-        let sig = self.sk.sign(&msg);
-
-        (k_f, k_pub, sig)
+        register_user(&self.sk, id, t_expiry)
     }
 
     // Moderate Function

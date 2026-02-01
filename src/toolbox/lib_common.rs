@@ -5,7 +5,9 @@ use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use rand::RngCore;
 use rand::rngs::OsRng;
-use signature::Verifier;
+use signature::{Signer, Verifier};
+
+use crate::toolbox::lib_mac_ggm as mac;
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
@@ -112,6 +114,38 @@ pub fn generate_user_id() -> [u8; 32] {
     OsRng.fill_bytes(&mut id);
 
     id
+}
+
+// Register User
+/// Registers a user with the moderator.
+///
+/// # Arguments
+/// * `sk_m` - Moderator Secret Key
+/// * `id` - User Identifier
+/// * `t_expiry` - Signature Expiry Time
+///
+/// # Returns
+/// * `k_f` - Franking Key
+/// * `k_pub` - Public Key
+/// * `sig` - Moderator Signature on User Registration
+pub fn register_user(
+    sk_m: &SigningKey,
+    id: &[u8; 32],
+    t_expiry: u64,
+) -> (FrankingKey, FrankingPublicKey, Signature) {
+    // Franking Key Generation (x0, x1)
+    let k_f = mac::keygen();
+
+    // Public Key Generation (g^x0, g^x1)
+    let k_pub = compute_public_key(&k_f);
+
+    // Serialize registration data (id || k_pub || t_expiry)
+    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, &k_pub, t_expiry);
+
+    // Signature over registration data
+    let sig = sk_m.sign(&msg);
+
+    (k_f, k_pub, sig)
 }
 
 // Session Init
