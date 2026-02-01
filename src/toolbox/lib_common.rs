@@ -32,6 +32,17 @@ pub struct FrankingData {
     pub pi: MacOrDlogZKProof,     // ZK Proof of Knowledge of MAC Tag
 }
 
+// Compress Ristretto Point
+/// Compresses a given Ristretto Point into its byte representation.
+/// # Arguments
+/// * `point` - Ristretto Point to be compressed
+///
+/// # Returns
+/// * `[u8; 32]` - Compressed byte representation of the Ristretto Point
+pub(crate) fn compress_point(point: &RistrettoPoint) -> [u8; 32] {
+    point.compress().to_bytes()
+}
+
 // Compute Timestamps for expiry and message
 /// Returns the current UNIX timestamp in seconds, plus any offset.
 ///
@@ -135,8 +146,8 @@ pub fn serialize_registration(
 
     // Serialize g0 and g1 and copy into msg
     let (g0, g1) = k_pub;
-    msg[32..64].copy_from_slice(&g0.compress().to_bytes());
-    msg[64..96].copy_from_slice(&g1.compress().to_bytes());
+    msg[32..64].copy_from_slice(&compress_point(g0));
+    msg[64..96].copy_from_slice(&compress_point(g1));
 
     // Serialize t_expiry and copy into msg
     msg[96..104].copy_from_slice(&t_expiry.to_le_bytes());
@@ -194,8 +205,8 @@ mod tests {
             "Generated user secret keys are not unique"
         );
         assert_ne!(
-            pk1.compress().to_bytes(),
-            pk2.compress().to_bytes(),
+            compress_point(&pk1),
+            compress_point(&pk2),
             "Generated user public keys are not unique"
         );
     }
@@ -208,8 +219,16 @@ mod tests {
         let k_f = (x0, x1);
         let (g0, g1) = compute_public_key(&k_f);
 
-        assert_eq!(g0, RistrettoPoint::mul_base(&x0), "Computed g0 is incorrect");
-        assert_eq!(g1, RistrettoPoint::mul_base(&x1), "Computed g1 is incorrect");
+        assert_eq!(
+            g0,
+            RistrettoPoint::mul_base(&x0),
+            "Computed g0 is incorrect"
+        );
+        assert_eq!(
+            g1,
+            RistrettoPoint::mul_base(&x1),
+            "Computed g1 is incorrect"
+        );
     }
 
     #[test]
@@ -267,12 +286,12 @@ mod tests {
         assert_eq!(&serialized[..32], &id, "Serialized id is incorrect");
         assert_eq!(
             &serialized[32..64],
-            &g0.compress().to_bytes(),
+            &compress_point(&g0),
             "Serialized g0 is incorrect"
         );
         assert_eq!(
             &serialized[64..96],
-            &g1.compress().to_bytes(),
+            &compress_point(&g1),
             "Serialized g1 is incorrect"
         );
         assert_eq!(
