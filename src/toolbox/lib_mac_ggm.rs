@@ -38,8 +38,8 @@ pub fn hash_context(m: &[u8], ctx: MessageContext) -> Scalar {
 
     let (id, t_msg) = ctx;
     hasher.update(id);
-    hasher.update(m);
     hasher.update(t_msg.to_le_bytes());
+    hasher.update(m);
 
     let hash_bytes = hasher.finalize();
 
