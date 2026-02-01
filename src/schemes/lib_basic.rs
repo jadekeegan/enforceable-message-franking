@@ -1,7 +1,7 @@
 use std::io::Error;
 
+use crate::toolbox::lib_basic_zkp::*;
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_mac_dlog_zk_proof::*;
 use crate::toolbox::lib_mac_ggm as mac;
 
 // Ristretto
@@ -12,6 +12,30 @@ use ed25519_dalek::Signature;
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
 use signature::Verifier;
+
+// Structs
+pub struct BasicFrankingData {
+    pub k_pub: FrankingPublicKey, // Public Key (g0, g1)
+    pub r_point: RistrettoPoint,  // Ristretto Point R
+    pub e_r: RistrettoPoint,      // Ephemeral Ristretto Point E_r
+    pub tag: RistrettoPoint,      // MAC Tag t
+    pub pi: MacOrDlogZKProof,     // ZK Proof of Knowledge of MAC Tag
+}
+
+// Helper Functions
+
+// Moderator Key Generation
+/// Generates a moderator signing and verifying key pair.
+///
+/// # Arguments
+/// * None
+///
+/// # Returns
+/// * `SigningKey` - Moderator Signing Key
+/// * `VerifyingKey` - Moderator Verifying Key
+pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
+    moderator_sig_keygen()
+}
 
 // Moderator Properties
 pub struct Moderator {
@@ -199,7 +223,7 @@ impl Client {
         k_pub: &FrankingPublicKey,
         m: &[u8],
         ctx: MessageContext,
-    ) -> FrankingData {
+    ) -> BasicFrankingData {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
@@ -216,7 +240,7 @@ impl Client {
         let pi = zk_mac_dlog_prove(&r, k_f, k_pub, &tag, m, ctx);
 
         // Return Franking Data
-        FrankingData {
+        BasicFrankingData {
             k_pub: *k_pub,
             r_point: r,
             e_r,
@@ -243,7 +267,7 @@ impl Client {
         &self,
         // pk_m: &VerifyingKey,
         pk_r: &ClientPublicKey,
-        ad: &FrankingData,
+        ad: &BasicFrankingData,
         m: &[u8],
         ctx: MessageContext,
         t_expiry: u64,
@@ -251,7 +275,7 @@ impl Client {
         // Unpack context
         let (_id, t_msg) = ctx;
 
-        let FrankingData {
+        let BasicFrankingData {
             k_pub,
             r_point,
             e_r,

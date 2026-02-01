@@ -29,11 +29,7 @@ getrandom = "0.3"
 ed25519-dalek = {version = "2", features = ["rand_core"]}
 
 [[bench]]
-name = "basic_setup_user"
-harness = false
-
-[[bench]]
-name = "basic_setup_moderator"
+name = "basic_moderator_keygen"
 harness = false
 
 [[bench]]
@@ -62,10 +58,6 @@ harness = false
 
 [[bench]]
 name = "compute_timestamp"
-harness = false
-
-[[bench]]
-name = "moderator_keygen"
 harness = false
 
 [[bench]]

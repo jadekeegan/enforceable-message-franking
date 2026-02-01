@@ -6,8 +6,6 @@ use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand::RngCore;
 use rand::rngs::OsRng;
 
-use crate::toolbox::lib_mac_dlog_zk_proof::MacOrDlogZKProof;
-
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
 pub const REGISTRATION_SERIALIZATION_LEN: usize = 32 + 32 + 32 + 8;
@@ -22,15 +20,6 @@ pub type FrankingPublicKey = (RistrettoPoint, RistrettoPoint);
 pub type MessageContext = ([u8; 32], u64); // (id, t_msg)
 pub type ClientSecretKey = Scalar;
 pub type ClientPublicKey = RistrettoPoint;
-
-// Structs
-pub struct FrankingData {
-    pub k_pub: FrankingPublicKey, // Public Key (g0, g1)
-    pub r_point: RistrettoPoint,  // Ristretto Point R
-    pub e_r: RistrettoPoint,      // Ephemeral Ristretto Point E_r
-    pub tag: RistrettoPoint,      // MAC Tag t
-    pub pi: MacOrDlogZKProof,     // ZK Proof of Knowledge of MAC Tag
-}
 
 // Compress Ristretto Point
 /// Compresses a given Ristretto Point into its byte representation.
@@ -60,8 +49,8 @@ pub fn compute_timestamp(offset_secs: u64) -> u64 {
     now + offset_secs
 }
 
-// Moderator Key Generation
-/// Generates moderator keys.
+// Moderator Signature Key Generation
+/// Generates moderator keys for signing and verifying.
 ///
 /// # Arguments
 /// * None
@@ -69,7 +58,7 @@ pub fn compute_timestamp(offset_secs: u64) -> u64 {
 /// # Returns
 /// * `SigningKey` - Moderator Signing Key
 /// * `VerifyingKey` - Moderator Verifying Key
-pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
+pub fn moderator_sig_keygen() -> (SigningKey, VerifyingKey) {
     let sk = SigningKey::generate(&mut OsRng);
     let pk = sk.verifying_key();
 
@@ -179,8 +168,8 @@ mod tests {
 
     #[test]
     fn test_moderator_keygen_is_unique() {
-        let (sk1, pk1) = moderator_keygen();
-        let (sk2, pk2) = moderator_keygen();
+        let (sk1, pk1) = moderator_sig_keygen();
+        let (sk2, pk2) = moderator_sig_keygen();
 
         assert_ne!(
             sk1.to_bytes(),

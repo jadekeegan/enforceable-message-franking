@@ -4,7 +4,7 @@ use rand::distributions::{Alphanumeric, DistString};
 
 use crate::schemes::lib_basic::*;
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_mac_dlog_zk_proof as zkp;
+use crate::toolbox::lib_basic_zkp as zkp;
 
 use crate::toolbox::lib_mac_ggm as mac_ggm;
 
@@ -87,11 +87,11 @@ pub fn test_basic_init_messages_with_franking_data(
     k_f: &FrankingKey,
     k_pub: &FrankingPublicKey,
     t_msg: u64,
-) -> (Vec<String>, Vec<FrankingData>) {
+) -> (Vec<String>, Vec<BasicFrankingData>) {
     let ms = test_init_messages();
 
     // Generate Franking Data for Each Message
-    let mut fds: Vec<FrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut fds: Vec<BasicFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
         fds.push(sender.frank(pk_r, k_f, k_pub, m.as_bytes(), (sender.id, t_msg)));
     }
@@ -106,11 +106,15 @@ pub fn test_basic_init_messages_with_franking_data_and_proof(
     k_f: &FrankingKey,
     k_pub: &FrankingPublicKey,
     t_msg: u64,
-) -> (Vec<String>, Vec<FrankingData>, Vec<zkp::MacOrDlogZKProof>) {
+) -> (
+    Vec<String>,
+    Vec<BasicFrankingData>,
+    Vec<zkp::MacOrDlogZKProof>,
+) {
     let ms = test_init_messages();
 
     // Generate Franking Data with Proof for Each Message
-    let mut fds: Vec<FrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut fds: Vec<BasicFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     let mut pis: Vec<zkp::MacOrDlogZKProof> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
         let fd = sender.frank(pk_r, k_f, k_pub, m.as_bytes(), (sender.id, t_msg));

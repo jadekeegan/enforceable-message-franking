@@ -176,7 +176,7 @@ mod test {
 
     use super::*;
 
-    fn test_dummy_params() -> (
+    fn test_params() -> (
         FrankingKey,
         FrankingPublicKey,
         RistrettoPoint,
@@ -192,16 +192,16 @@ mod test {
         let m = b"Test message";
         let ctx = (
             [0u8; 32], // id
-            0u64,      // t_msg
+            12345u64,  // t_msg
         );
 
         (k_f, k_pub, r_point, m, ctx)
     }
 
     #[test]
-    fn test_zk_verifies_valid_tag() {
+    fn test_valid_proof_verifies() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
@@ -214,9 +214,9 @@ mod test {
     }
 
     #[test]
-    fn test_zk_does_not_verify_invalid_franking_key() {
+    fn test_wrong_franking_key_rejected() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
@@ -230,9 +230,9 @@ mod test {
     }
 
     #[test]
-    fn test_zk_does_not_verify_invalid_tag() {
+    fn test_wrong_tag_rejected() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
@@ -246,9 +246,9 @@ mod test {
     }
 
     #[test]
-    fn test_zk_does_not_verify_invalid_message() {
+    fn test_wrong_message_rejected() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
@@ -262,9 +262,9 @@ mod test {
     }
 
     #[test]
-    fn test_zk_does_not_verify_invalid_context() {
+    fn test_wrong_context_rejected() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
