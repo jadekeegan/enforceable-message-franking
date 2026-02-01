@@ -11,7 +11,6 @@ use ed25519_dalek::Signature;
 // Signature
 use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
-use signature::Verifier;
 
 // Structs
 pub struct BasicFrankingData {
@@ -288,6 +287,8 @@ impl Client {
 
 #[cfg(test)]
 mod test {
+
+    use signature::Verifier;
 
     use super::*;
 
