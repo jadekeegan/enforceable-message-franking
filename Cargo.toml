@@ -111,3 +111,15 @@ harness = false
 [[bench]]
 name = "elgamal_enc_decrypt"
 harness = false
+
+[[bench]]
+name = "elgamal_frank"
+harness = false
+
+[[bench]]
+name = "elgamal_moderate"
+harness = false
+
+[[bench]]
+name = "elgamal_verify"
+harness = false
