@@ -41,11 +41,12 @@ def parse_benchmark_result(benchmark_path: Path) -> Optional[Tuple[str, int, flo
     return None
 
 
-def collect_benchmark_data(criterion_dir: Path, functions: List[str]) -> Dict[str, Dict[int, float]]:
+def collect_benchmark_data(scheme: str, criterion_dir: Path, functions: List[str]) -> Dict[str, Dict[int, float]]:
     """
     Collect benchmark data for specified functions.
     
     Args:
+        scheme: Name of the scheme (e.g., "basic", "elgamal")
         criterion_dir: Path to the criterion benchmark directory
         functions: List of function names to collect data for
         
@@ -55,7 +56,7 @@ def collect_benchmark_data(criterion_dir: Path, functions: List[str]) -> Dict[st
     data = {func: {} for func in functions}
     
     for func in functions:
-        group_path = criterion_dir / "basic" / func
+        group_path = criterion_dir / f"{scheme}_{func}"
         if not group_path.exists():
             continue
         
@@ -91,6 +92,7 @@ def format_time(nanoseconds: float) -> str:
 
 
 def load_benchmark_data(
+    scheme: str,
     script_path: str,
     functions: List[str] = ['frank', 'verify', 'moderate']
 ) -> Dict[str, Dict[int, float]]:
@@ -98,6 +100,7 @@ def load_benchmark_data(
     Load benchmark data from Criterion output directory.
     
     Args:
+        scheme: Name of the scheme (e.g., "basic", "elgamal")
         script_path: Path to the calling script (__file__)
         functions: List of function names to collect data for
         
@@ -113,7 +116,7 @@ def load_benchmark_data(
         print("Error: Run benchmarks first with: cargo bench")
         sys.exit(1)
     
-    data = collect_benchmark_data(criterion_dir, functions)
+    data = collect_benchmark_data(scheme, criterion_dir, functions)
     
     if not any(data.values()):
         print("Error: No benchmark data found")

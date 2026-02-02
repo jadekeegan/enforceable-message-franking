@@ -1,12 +1,7 @@
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
+use crate::toolbox::lib_common::*;
+use crate::toolbox::lib_mac_ggm::hash_context;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use rand::rngs::OsRng;
-
-use crate::toolbox::lib_common::{ClientPublicKey, MessageContext};
-use crate::toolbox::{
-    lib_common::{FrankingKey, FrankingPublicKey},
-    lib_mac_ggm::hash_context,
-};
 
 // ZK Proof Structure
 pub struct MacOrDlogZKProof {
@@ -60,19 +55,19 @@ pub fn zk_mac_dlog_prove(
     let r1 = Scalar::random(&mut rng);
 
     // Compute commitment for public key
-    let t0 = &r0 * G; // g^r0
-    let t1 = &r1 * G; // g^r1
+    let t0 = RistrettoPoint::mul_base(&r0); // g^r0
+    let t1 = RistrettoPoint::mul_base(&r1); // g^r1
 
     // Compute commitment for MAC tag
-    let t_mac = &(r0 + r1 * h_m) * G; // g^(r0 + r1*h)
+    let t_mac = RistrettoPoint::mul_base(&(r0 + r1 * h_m)); // g^(r0 + r1*h)
 
     // Simulate DLog proof
     let c_dlog = Scalar::random(&mut rng);
     let z_dlog = Scalar::random(&mut rng);
-    let t_dlog = &z_dlog * G - c_dlog * r_point; // g^z_dlog * R^(-c_dlog)
+    let t_dlog = RistrettoPoint::mul_base(&z_dlog) - c_dlog * r_point; // g^z_dlog * R^(-c_dlog)
 
     // Compute fiat shamir challenge c = H(g0, g1, R, t0, t1, t_mac, t_dlog)
-    let c = hash_challenge([g0, g1, r_point, tag, &t0, &t1, &t_mac, &t_dlog]);
+    let c = hash_challenge([g0, g1, r_point, tag, &t0, &t1, &t_mac, &t_dlog], m, ctx);
 
     // Compute franking key challenge
     let c_frank = c - c_dlog;
@@ -80,7 +75,7 @@ pub fn zk_mac_dlog_prove(
     // Compute responses
     let z0 = r0 + c_frank * x0;
     let z1 = r1 + c_frank * x1;
-    let z_mac = &(z0 + z1 * h_m) * G;
+    let z_mac = RistrettoPoint::mul_base(&(z0 + z1 * h_m));
 
     MacOrDlogZKProof {
         t0,
@@ -116,8 +111,8 @@ pub fn zk_mac_dlog_verify(
     k_pub: &FrankingPublicKey,
     _pk_r: &ClientPublicKey,
     tag: &RistrettoPoint,
-    _m: &[u8],
-    _ctx: MessageContext,
+    m: &[u8],
+    ctx: MessageContext,
     pi: &MacOrDlogZKProof,
 ) -> bool {
     // Unpack proof
@@ -138,19 +133,19 @@ pub fn zk_mac_dlog_verify(
     let (g0, g1) = k_pub;
 
     // Recompute challenge c
-    let c = hash_challenge([g0, g1, r_point, tag, t0, t1, t_mac, t_dlog]);
+    let c = hash_challenge([g0, g1, r_point, tag, t0, t1, t_mac, t_dlog], m, ctx);
     let v_c = c == (c_frank + c_dlog);
 
     // Verify commitments
-    let v0 = z0 * G == t0 + c_frank * g0;
-    let v1 = z1 * G == t1 + c_frank * g1;
+    let v0 = RistrettoPoint::mul_base(z0) == t0 + c_frank * g0;
+    let v1 = RistrettoPoint::mul_base(z1) == t1 + c_frank * g1;
     let v_mac = *z_mac == t_mac + c_frank * tag;
-    let v_dlog = z_dlog * G == t_dlog + c_dlog * r_point;
+    let v_dlog = RistrettoPoint::mul_base(z_dlog) == t_dlog + c_dlog * r_point;
 
     v_c && v0 && v1 && v_mac && v_dlog
 }
 
-pub fn hash_challenge(points: [&RistrettoPoint; 8]) -> Scalar {
+pub fn hash_challenge(points: [&RistrettoPoint; 8], m: &[u8], ctx: MessageContext) -> Scalar {
     use sha2::{Digest, Sha256};
 
     let mut hasher = Sha256::new();
@@ -159,6 +154,14 @@ pub fn hash_challenge(points: [&RistrettoPoint; 8]) -> Scalar {
     for point in points {
         hasher.update(point.compress().as_bytes());
     }
+
+    // Hash context
+    let (id, t_msg) = ctx;
+    hasher.update(id);
+    hasher.update(t_msg.to_le_bytes());
+
+    // Hash message
+    hasher.update(m);
 
     // Finalize hash and convert to Scalar
     let hash_bytes = hasher.finalize();
@@ -173,7 +176,7 @@ mod test {
 
     use super::*;
 
-    fn test_dummy_params() -> (
+    fn test_params() -> (
         FrankingKey,
         FrankingPublicKey,
         RistrettoPoint,
@@ -181,21 +184,24 @@ mod test {
         MessageContext,
     ) {
         let k_f = (Scalar::from(1u64), Scalar::from(2u64));
-        let k_pub = (&k_f.0 * G, &k_f.1 * G);
+        let k_pub = (
+            RistrettoPoint::mul_base(&k_f.0),
+            RistrettoPoint::mul_base(&k_f.1),
+        );
         let r_point = RistrettoPoint::default();
         let m = b"Test message";
         let ctx = (
             [0u8; 32], // id
-            0u64,      // t_msg
+            12345u64,  // t_msg
         );
 
         (k_f, k_pub, r_point, m, ctx)
     }
 
     #[test]
-    fn test_zk_verifies_valid_tag() {
+    fn test_valid_proof_verifies() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
@@ -208,9 +214,9 @@ mod test {
     }
 
     #[test]
-    fn test_zk_does_not_verify_invalid_franking_key() {
+    fn test_wrong_franking_key_rejected() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
@@ -224,9 +230,9 @@ mod test {
     }
 
     #[test]
-    fn test_zk_does_not_verify_invalid_tag() {
+    fn test_wrong_tag_rejected() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
@@ -240,9 +246,9 @@ mod test {
     }
 
     #[test]
-    fn test_zk_does_not_verify_invalid_message() {
+    fn test_wrong_message_rejected() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);
@@ -256,9 +262,9 @@ mod test {
     }
 
     #[test]
-    fn test_zk_does_not_verify_invalid_context() {
+    fn test_wrong_context_rejected() {
         // Dummy values
-        let (k_f, k_pub, r_point, m, ctx) = test_dummy_params();
+        let (k_f, k_pub, r_point, m, ctx) = test_params();
 
         // Compute mac tag
         let tag = tag(&k_f, m, ctx);

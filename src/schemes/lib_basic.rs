@@ -1,18 +1,40 @@
 use std::io::Error;
 
+use crate::toolbox::lib_basic_zkp::*;
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_mac_dlog_zk_proof::*;
 use crate::toolbox::lib_mac_ggm as mac;
 
 // Ristretto
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 
 use ed25519_dalek::Signature;
 // Signature
-use ed25519_dalek::{Signer, SigningKey, VerifyingKey};
+use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
-use signature::Verifier;
+
+// Structs
+pub struct BasicFrankingData {
+    pub k_pub: FrankingPublicKey, // Public Key (g0, g1)
+    pub r_point: RistrettoPoint,  // Ristretto Point R
+    pub e_r: RistrettoPoint,      // Ephemeral Ristretto Point E_r
+    pub tag: RistrettoPoint,      // MAC Tag t
+    pub pi: MacOrDlogZKProof,     // ZK Proof of Knowledge of MAC Tag
+}
+
+// Helper Functions
+
+// Moderator Key Generation
+/// Generates a moderator signing and verifying key pair.
+///
+/// # Arguments
+/// * None
+///
+/// # Returns
+/// * `SigningKey` - Moderator Signing Key
+/// * `VerifyingKey` - Moderator Verifying Key
+pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
+    moderator_sig_keygen()
+}
 
 // Moderator Properties
 pub struct Moderator {
@@ -50,20 +72,7 @@ impl Moderator {
         id: &[u8; 32],
         t_expiry: u64,
     ) -> (FrankingKey, FrankingPublicKey, Signature) {
-        // Franking Key Generation (x0, x1)
-        let k_f = mac::keygen();
-
-        // Public Key Generation (g^x0, g^x1)
-        let k_pub = compute_public_key(&k_f);
-
-        // Serialize registration data (id || k_pub || t_expiry)
-        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] =
-            serialize_registration(id, &k_pub, t_expiry);
-
-        // Signature over registration data
-        let sig = self.sk.sign(&msg);
-
-        (k_f, k_pub, sig)
+        register_user(&self.sk, id, t_expiry)
     }
 
     // Moderate Function
@@ -138,16 +147,7 @@ impl Client {
         t_expiry: u64,
         sig: &Signature,
     ) -> bool {
-        // Verify FrankingKey and PublicKey
-        let computed_k_pub = compute_public_key(k_f);
-        let is_k_pub_valid = k_pub == &computed_k_pub;
-
-        // Serialize message registration data and verify signature
-        let data: [u8; REGISTRATION_SERIALIZATION_LEN] =
-            serialize_registration(&self.id, k_pub, t_expiry);
-        let is_sig_valid = pk_m.verify(&data, sig).is_ok();
-
-        is_k_pub_valid && is_sig_valid
+        session_init(&self.id, pk_m, k_f, k_pub, t_expiry, sig)
     }
 
     // AcceptSession Function
@@ -170,11 +170,7 @@ impl Client {
         t_expiry: u64,
         sig: &Signature,
     ) -> bool {
-        // Serialize message registration data and verify signature
-        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
-
-        // Verify signature
-        pk_m.verify(&msg, sig).is_ok()
+        accept_session(pk_m, id, k_pub, t_expiry, sig)
     }
 
     // Frank Function
@@ -200,7 +196,7 @@ impl Client {
         k_pub: &FrankingPublicKey,
         m: &[u8],
         ctx: MessageContext,
-    ) -> FrankingData {
+    ) -> BasicFrankingData {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
@@ -208,7 +204,7 @@ impl Client {
         let r = alpha * pk_r;
 
         // Compute E_r = g^alpha
-        let e_r = &alpha * G;
+        let e_r = RistrettoPoint::mul_base(&alpha);
 
         // Compute MAC Tag t
         let tag = mac::tag(k_f, m, ctx);
@@ -217,7 +213,7 @@ impl Client {
         let pi = zk_mac_dlog_prove(&r, k_f, k_pub, &tag, m, ctx);
 
         // Return Franking Data
-        FrankingData {
+        BasicFrankingData {
             k_pub: *k_pub,
             r_point: r,
             e_r,
@@ -244,7 +240,7 @@ impl Client {
         &self,
         // pk_m: &VerifyingKey,
         pk_r: &ClientPublicKey,
-        ad: &FrankingData,
+        ad: &BasicFrankingData,
         m: &[u8],
         ctx: MessageContext,
         t_expiry: u64,
@@ -252,7 +248,7 @@ impl Client {
         // Unpack context
         let (_id, t_msg) = ctx;
 
-        let FrankingData {
+        let BasicFrankingData {
             k_pub,
             r_point,
             e_r,
@@ -278,6 +274,8 @@ impl Client {
 
 #[cfg(test)]
 mod test {
+
+    use signature::Verifier;
 
     use super::*;
 
@@ -306,7 +304,7 @@ mod test {
         let (x0, x1) = k_f;
         let (g0, g1) = k_pub;
 
-        assert!(&x0 * G == g0);
-        assert!(&x1 * G == g1);
+        assert!(RistrettoPoint::mul_base(&x0) == g0);
+        assert!(RistrettoPoint::mul_base(&x1) == g1);
     }
 }

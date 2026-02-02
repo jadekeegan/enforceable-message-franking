@@ -1,13 +1,13 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::{RistrettoPoint, Scalar};
-use ed25519_dalek::{SigningKey, VerifyingKey};
+use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use rand::RngCore;
 use rand::rngs::OsRng;
+use signature::{Signer, Verifier};
 
-use crate::toolbox::lib_mac_dlog_zk_proof::MacOrDlogZKProof;
+use crate::toolbox::lib_mac_ggm as mac;
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
@@ -24,13 +24,15 @@ pub type MessageContext = ([u8; 32], u64); // (id, t_msg)
 pub type ClientSecretKey = Scalar;
 pub type ClientPublicKey = RistrettoPoint;
 
-// Structs
-pub struct FrankingData {
-    pub k_pub: FrankingPublicKey, // Public Key (g0, g1)
-    pub r_point: RistrettoPoint,  // Ristretto Point R
-    pub e_r: RistrettoPoint,      // Ephemeral Ristretto Point E_r
-    pub tag: RistrettoPoint,      // MAC Tag t
-    pub pi: MacOrDlogZKProof,     // ZK Proof of Knowledge of MAC Tag
+// Compress Ristretto Point
+/// Compresses a given Ristretto Point into its byte representation.
+/// # Arguments
+/// * `point` - Ristretto Point to be compressed
+///
+/// # Returns
+/// * `[u8; 32]` - Compressed byte representation of the Ristretto Point
+pub(crate) fn compress_point(point: &RistrettoPoint) -> [u8; 32] {
+    point.compress().to_bytes()
 }
 
 // Compute Timestamps for expiry and message
@@ -50,8 +52,8 @@ pub fn compute_timestamp(offset_secs: u64) -> u64 {
     now + offset_secs
 }
 
-// Moderator Key Generation
-/// Generates moderator keys.
+// Moderator Signature Key Generation
+/// Generates moderator keys for signing and verifying.
 ///
 /// # Arguments
 /// * None
@@ -59,7 +61,7 @@ pub fn compute_timestamp(offset_secs: u64) -> u64 {
 /// # Returns
 /// * `SigningKey` - Moderator Signing Key
 /// * `VerifyingKey` - Moderator Verifying Key
-pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
+pub fn moderator_sig_keygen() -> (SigningKey, VerifyingKey) {
     let sk = SigningKey::generate(&mut OsRng);
     let pk = sk.verifying_key();
 
@@ -77,7 +79,7 @@ pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
 /// * `ClientPublicKey` - User Public Key
 pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
     let sk = Scalar::random(&mut OsRng);
-    let pk = &sk * G;
+    let pk = RistrettoPoint::mul_base(&sk);
 
     (sk, pk)
 }
@@ -93,8 +95,8 @@ pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
 pub fn compute_public_key(k_f: &FrankingKey) -> FrankingPublicKey {
     let (x0, x1) = k_f;
 
-    let g0 = x0 * G;
-    let g1 = x1 * G;
+    let g0 = RistrettoPoint::mul_base(x0);
+    let g1 = RistrettoPoint::mul_base(x1);
 
     (g0, g1)
 }
@@ -112,6 +114,96 @@ pub fn generate_user_id() -> [u8; 32] {
     OsRng.fill_bytes(&mut id);
 
     id
+}
+
+// Register User
+/// Registers a user with the moderator.
+///
+/// # Arguments
+/// * `sk_m` - Moderator Secret Key
+/// * `id` - User Identifier
+/// * `t_expiry` - Signature Expiry Time
+///
+/// # Returns
+/// * `k_f` - Franking Key
+/// * `k_pub` - Public Key
+/// * `sig` - Moderator Signature on User Registration
+pub fn register_user(
+    sk_m: &SigningKey,
+    id: &[u8; 32],
+    t_expiry: u64,
+) -> (FrankingKey, FrankingPublicKey, Signature) {
+    // Franking Key Generation (x0, x1)
+    let k_f = mac::keygen();
+
+    // Public Key Generation (g^x0, g^x1)
+    let k_pub = compute_public_key(&k_f);
+
+    // Serialize registration data (id || k_pub || t_expiry)
+    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, &k_pub, t_expiry);
+
+    // Signature over registration data
+    let sig = sk_m.sign(&msg);
+
+    (k_f, k_pub, sig)
+}
+
+// Session Init
+/// Initializes a session for a client.
+///
+/// # Arguments
+/// * `id` - User Identifier
+/// * `pk_m` - Moderator Verifying Key
+/// * `k_f` - Franking Key
+/// * `k_pub` - Public Key
+/// * `t_expiry` - Signature Expiry Time
+/// * `sig` - Moderator Signature on User Registration
+///
+/// # Returns
+/// * `bool` - indicating validity (true) or invalidity (false)
+pub fn session_init(
+    id: &[u8; 32],
+    pk_m: &VerifyingKey,
+    k_f: &FrankingKey,
+    k_pub: &FrankingPublicKey,
+    t_expiry: u64,
+    sig: &Signature,
+) -> bool {
+    // Verify FrankingKey and PublicKey
+    let computed_k_pub = compute_public_key(k_f);
+    let is_k_pub_valid = k_pub == &computed_k_pub;
+
+    // Serialize message registration data and verify signature
+    let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
+    let is_sig_valid = pk_m.verify(&data, sig).is_ok();
+
+    is_k_pub_valid && is_sig_valid
+}
+
+// Accept Session
+/// Determines if another user's session should be accepted.
+///
+/// # Arguments
+/// * `pk_m` - Moderator Verifying Key
+/// * `id` - User Identifier
+/// * `k_pub` - Public Key
+/// * `t_expiry` - Signature Expiry Time
+/// * `sig` - Moderator Signature on User Registration
+///
+/// # Returns
+/// * `bool` - indicating acceptance (true) or rejection (false)
+pub fn accept_session(
+    pk_m: &VerifyingKey,
+    id: &[u8; 32],
+    k_pub: &FrankingPublicKey,
+    t_expiry: u64,
+    sig: &Signature,
+) -> bool {
+    // Serialize message registration data and verify signature
+    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
+
+    // Verify signature
+    pk_m.verify(&msg, sig).is_ok()
 }
 
 // Serialize User Registration Data
@@ -136,8 +228,8 @@ pub fn serialize_registration(
 
     // Serialize g0 and g1 and copy into msg
     let (g0, g1) = k_pub;
-    msg[32..64].copy_from_slice(&g0.compress().to_bytes());
-    msg[64..96].copy_from_slice(&g1.compress().to_bytes());
+    msg[32..64].copy_from_slice(&compress_point(g0));
+    msg[64..96].copy_from_slice(&compress_point(g1));
 
     // Serialize t_expiry and copy into msg
     msg[96..104].copy_from_slice(&t_expiry.to_le_bytes());
@@ -169,8 +261,8 @@ mod tests {
 
     #[test]
     fn test_moderator_keygen_is_unique() {
-        let (sk1, pk1) = moderator_keygen();
-        let (sk2, pk2) = moderator_keygen();
+        let (sk1, pk1) = moderator_sig_keygen();
+        let (sk2, pk2) = moderator_sig_keygen();
 
         assert_ne!(
             sk1.to_bytes(),
@@ -195,8 +287,8 @@ mod tests {
             "Generated user secret keys are not unique"
         );
         assert_ne!(
-            pk1.compress().to_bytes(),
-            pk2.compress().to_bytes(),
+            compress_point(&pk1),
+            compress_point(&pk2),
             "Generated user public keys are not unique"
         );
     }
@@ -209,8 +301,16 @@ mod tests {
         let k_f = (x0, x1);
         let (g0, g1) = compute_public_key(&k_f);
 
-        assert_eq!(g0, &x0 * G, "Computed g0 is incorrect");
-        assert_eq!(g1, &x1 * G, "Computed g1 is incorrect");
+        assert_eq!(
+            g0,
+            RistrettoPoint::mul_base(&x0),
+            "Computed g0 is incorrect"
+        );
+        assert_eq!(
+            g1,
+            RistrettoPoint::mul_base(&x1),
+            "Computed g1 is incorrect"
+        );
     }
 
     #[test]
@@ -268,12 +368,12 @@ mod tests {
         assert_eq!(&serialized[..32], &id, "Serialized id is incorrect");
         assert_eq!(
             &serialized[32..64],
-            &g0.compress().to_bytes(),
+            &compress_point(&g0),
             "Serialized g0 is incorrect"
         );
         assert_eq!(
             &serialized[64..96],
-            &g1.compress().to_bytes(),
+            &compress_point(&g1),
             "Serialized g1 is incorrect"
         );
         assert_eq!(

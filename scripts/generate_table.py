@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
 Format benchmark results for the core scheme functions into a table.
-Usage: python generate_table.py [--csv]
+Usage: python scripts/generate_table.py [--scheme basic|elgamal]
 """
 
 import argparse
-from pathlib import Path
 from typing import Dict, List
 
 from benchmark_utils import load_benchmark_data, format_time
@@ -47,36 +46,18 @@ def print_markdown_table(data: Dict[str, Dict[int, float]], sizes: List[int]):
         print(row)
 
 
-def print_csv_table(data: Dict[str, Dict[int, float]], sizes: List[int], output_file: str):
-    """Save benchmark data as CSV."""
-    lines = ["Function," + ",".join(str(size) for size in sizes)]
-    
-    for func in sorted(data.keys()):
-        row = [func]
-        for size in sizes:
-            row.append(f"{data[func][size]:.2f}" if size in data[func] else "-")
-        lines.append(",".join(row))
-    
-    Path(output_file).write_text("\n".join(lines))
-    print(f"CSV saved to {output_file}")
-
-
 def main():
     """Generate benchmark results table."""
     parser = argparse.ArgumentParser(description='Generate benchmark results table.')
-    parser.add_argument('--csv', action='store_true', 
-                       help='Save as CSV to scripts/benchmark_results.csv')
+    parser.add_argument('--scheme', type=str, default='basic', help='Name of the scheme (e.g., "basic", "elgamal")')
     args = parser.parse_args()
     
     # Load benchmark data
-    data = load_benchmark_data(__file__)
+    data = load_benchmark_data(args.scheme, __file__)
     sizes = sorted({size for func_data in data.values() for size in func_data.keys()})
     
     # Output table
-    if args.csv:
-        print_csv_table(data, sizes, str(Path(__file__).parent / 'benchmark_results.csv'))
-    else:
-        print_markdown_table(data, sizes)
+    print_markdown_table(data, sizes)
 
 
 if __name__ == '__main__':

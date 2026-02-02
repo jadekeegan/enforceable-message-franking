@@ -29,11 +29,7 @@ getrandom = "0.3"
 ed25519-dalek = {version = "2", features = ["rand_core"]}
 
 [[bench]]
-name = "basic_setup_user"
-harness = false
-
-[[bench]]
-name = "basic_setup_moderator"
+name = "basic_moderator_keygen"
 harness = false
 
 [[bench]]
@@ -45,11 +41,11 @@ name = "basic_moderate"
 harness = false
 
 [[bench]]
-name = "basic_session_init"
+name = "session_init"
 harness = false
 
 [[bench]]
-name = "basic_accept_session"
+name = "accept_session"
 harness = false
 
 [[bench]]
@@ -62,10 +58,6 @@ harness = false
 
 [[bench]]
 name = "compute_timestamp"
-harness = false
-
-[[bench]]
-name = "moderator_keygen"
 harness = false
 
 [[bench]]
@@ -106,4 +98,28 @@ harness = false
 
 [[bench]]
 name = "mac_ggm_verify"
+harness = false
+
+[[bench]]
+name = "elgamal_enc_keygen"
+harness = false
+
+[[bench]]
+name = "elgamal_enc_encrypt"
+harness = false
+
+[[bench]]
+name = "elgamal_enc_decrypt"
+harness = false
+
+[[bench]]
+name = "elgamal_frank"
+harness = false
+
+[[bench]]
+name = "elgamal_moderate"
+harness = false
+
+[[bench]]
+name = "elgamal_verify"
 harness = false

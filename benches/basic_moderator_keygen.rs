@@ -1,10 +1,10 @@
 use criterion::*;
-use federated_franking_impl::toolbox::lib_common::moderator_keygen;
+use federated_franking_impl::schemes::lib_basic as basic;
 
 pub fn bench_moderator_keygen(c: &mut Criterion) {
-    let mut group = c.benchmark_group("common/keygen");
+    let mut group = c.benchmark_group("basic");
     group.bench_function("moderator_keygen()", |b| {
-        b.iter(|| black_box(moderator_keygen()))
+        b.iter(|| black_box(basic::moderator_keygen()))
     });
     group.finish();
 }

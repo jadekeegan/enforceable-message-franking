@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
 Plot benchmark results for core scheme functions.
-Usage: python generate_plot.py
+Usage: python scripts/generate_plot.py [--scheme basic|elgamal]
 """
 
+import argparse
 from pathlib import Path
 from typing import Dict
 import matplotlib.pyplot as plt
@@ -40,11 +41,15 @@ def plot_benchmark_data(data: Dict[str, Dict[int, float]], output_file: str):
 
 def main():
     """Generate benchmark performance plot."""
+    parser = argparse.ArgumentParser(description="Generate benchmark performance plot.")
+    parser.add_argument('--scheme', type=str, default='basic', help='Name of the scheme (e.g., "basic", "elgamal")')
+    args = parser.parse_args()
+
     # Load benchmark data
-    data = load_benchmark_data(__file__)
+    data = load_benchmark_data(args.scheme, __file__)
     
     # Generate plot
-    output_file = str(Path(__file__).parent / 'benchmark_plot.png')
+    output_file = str(Path(__file__).parent / f'{args.scheme}_benchmark_plot.png')
     plot_benchmark_data(data, output_file)
 
 

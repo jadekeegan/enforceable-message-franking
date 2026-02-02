@@ -2,7 +2,6 @@ use crate::toolbox::lib_common::{FrankingKey, MessageContext};
 
 use rand::rngs::OsRng;
 
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_TABLE as G;
 use curve25519_dalek::ristretto::RistrettoPoint;
 use curve25519_dalek::scalar::Scalar;
 
@@ -39,8 +38,8 @@ pub fn hash_context(m: &[u8], ctx: MessageContext) -> Scalar {
 
     let (id, t_msg) = ctx;
     hasher.update(id);
-    hasher.update(m);
     hasher.update(t_msg.to_le_bytes());
+    hasher.update(m);
 
     let hash_bytes = hasher.finalize();
 
@@ -68,7 +67,7 @@ pub fn tag(k_f: &FrankingKey, m: &[u8], ctx: MessageContext) -> RistrettoPoint {
     // g^(x0 + x1 * H(m))
     let exp = *x0 + (*x1 * h_m);
 
-    &exp * G
+    RistrettoPoint::mul_base(&exp)
 }
 
 // Mac Tag Verification
@@ -138,7 +137,7 @@ mod tests {
 
         let tag = tag(&k_f, m, ctx);
         let expected_exp = k_f.0 + (k_f.1 * hash_context(m, ctx));
-        let expected_tag = &expected_exp * G;
+        let expected_tag = RistrettoPoint::mul_base(&expected_exp);
 
         assert_eq!(tag, expected_tag, "Computed MAC tag is incorrect");
     }

@@ -5,7 +5,9 @@ pub mod schemes {
 }
 
 pub mod toolbox {
+    pub mod lib_basic_zkp;
     pub mod lib_common;
-    pub mod lib_mac_dlog_zk_proof;
+    pub mod lib_elgamal_enc;
+    pub mod lib_elgamal_zkp;
     pub mod lib_mac_ggm;
 }
