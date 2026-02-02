@@ -24,5 +24,4 @@ __pycache__/
 *$py.class
 *.so
 .Python
-scripts/benchmark_results.csv
-scripts/benchmark_plot.png
+scripts/*_benchmark_plot.png
