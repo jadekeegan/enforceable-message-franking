@@ -13,7 +13,7 @@ pub fn bench_elgamal_frank(c: &mut Criterion) {
     let t_msg = compute_timestamp(0);
 
     // Benchmark
-    let mut group = c.benchmark_group("elgamal");
+    let mut group = c.benchmark_group("elgamal/frank");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
             format!("frank() message of size {}", msg_size),

@@ -20,7 +20,7 @@ pub fn bench_elgamal_verify(c: &mut Criterion) {
     );
 
     // Benchmark
-    let mut group = c.benchmark_group("elgamal");
+    let mut group = c.benchmark_group("elgamal/verify");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
             format!("verify() message of size {}", msg_size),

@@ -5,7 +5,7 @@ use federated_franking_impl::toolbox::lib_common::*;
 pub fn bench_elgamal_moderate(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (moderator, sender, receiver, k_f, k_pub, sig) =
+    let (moderator, sender, receiver, k_f, k_pub, _sig) =
         test_elgamal_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes with corresponding franking data
@@ -20,7 +20,7 @@ pub fn bench_elgamal_moderate(c: &mut Criterion) {
     );
 
     // Benchmark
-    let mut group = c.benchmark_group("elgamal");
+    let mut group = c.benchmark_group("elgamal/moderate");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
             format!("moderate() message of size {}", msg_size),
