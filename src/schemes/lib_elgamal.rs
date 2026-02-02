@@ -19,8 +19,8 @@ pub struct ModeratorSecretKey {
 }
 
 pub struct ModeratorPublicKey {
-    pk_sig: VerifyingKey,
-    pk_enc: ElGamalPublicKey,
+    pub pk_sig: VerifyingKey,
+    pub pk_enc: ElGamalPublicKey,
 }
 
 pub struct ElGamalFrankingData {
