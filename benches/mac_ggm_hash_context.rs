@@ -12,7 +12,6 @@ pub fn bench_ggm_hash_context(c: &mut Criterion) {
     // Initialize messages of varying sizes
     let ms = test_init_messages();
     let t_msg = compute_timestamp(0);
-    let ctx = (client.id, t_msg);
 
     // Benchmark
     let mut group = c.benchmark_group("mac_ggm");
@@ -22,7 +21,7 @@ pub fn bench_ggm_hash_context(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    black_box(mac_ggm::hash_context(ms[j].as_bytes(), ctx));
+                    black_box(mac_ggm::hash_context(ms[j].as_bytes(), &client.id, t_msg));
                 })
             },
         );

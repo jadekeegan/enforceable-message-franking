@@ -21,7 +21,13 @@ pub fn bench_ggm_mac_verify(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    black_box(mac_ggm::verify(&k_f, ms[j].as_bytes(), (client.id, t_msg), &tags[j]));
+                    black_box(mac_ggm::verify(
+                        &k_f,
+                        ms[j].as_bytes(),
+                        &client.id,
+                        t_msg,
+                        &tags[j],
+                    ));
                 })
             },
         );

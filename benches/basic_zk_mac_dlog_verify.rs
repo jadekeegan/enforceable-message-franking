@@ -7,13 +7,13 @@ use federated_franking_impl::toolbox::lib_common::*;
 pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (_moderator, sender, receiver, k_f, k_pub, _sig) =
+    let (_moderator, sender, receiver, k_f, ctx, _sig) =
         test_basic_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes with franking data and proofs
     let t_msg = compute_timestamp(0);
     let (ms, fds) =
-        test_basic_init_messages_with_franking_data(&sender, &receiver.pk, &k_f, &k_pub, t_msg);
+        test_basic_init_messages_with_franking_data(&sender, &receiver.pk, &k_f, &ctx.k_pub, t_msg);
 
     // Benchmark
     let mut group = c.benchmark_group("basic/zk");
@@ -25,11 +25,10 @@ pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
                 b.iter(|| {
                     black_box(zkp::zk_mac_dlog_verify(
                         &fds[j].r_point,
-                        &k_pub,
-                        &receiver.pk,
                         &fds[j].tag,
                         ms[j].as_bytes(), // Convert String to &[u8]
-                        (sender.id, t_msg),
+                        t_msg,
+                        &ctx,
                         &fds[j].pi,
                     ));
                 })

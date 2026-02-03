@@ -10,7 +10,6 @@ use crate::toolbox::lib_mac_ggm as mac;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::Signature;
 use ed25519_dalek::{SigningKey, VerifyingKey};
-use signature::Verifier;
 
 // Type Definitions
 pub struct ModeratorSecretKey {
@@ -24,7 +23,6 @@ pub struct ModeratorPublicKey {
 }
 
 pub struct ElGamalFrankingData {
-    pub k_pub: FrankingPublicKey,   // Public Key (g0, g1)
     pub r_point: RistrettoPoint,    // Ristretto Point R
     pub e_r: RistrettoPoint,        // Ephemeral Ristretto Point E_r
     pub enc_tag: ElGamalCiphertext, // Encrypted MAC Tag t
@@ -93,10 +91,9 @@ impl Moderator {
     ///
     /// # Arguments
     /// * `k_f` - Franking Key
-    /// * `t_expiry` - Signature Expiry Time
-    /// * `id` - User Identifier
     /// * `m` - Message to be Verified
     /// * `t_msg` - Message Timestamp
+    /// * `ctx` - Session Context
     /// * `enc_tag` - Mac Tag
     ///
     /// # Returns
@@ -104,17 +101,14 @@ impl Moderator {
     pub fn moderate(
         &self,
         k_f: &FrankingKey,
-        t_expiry: u64,
         m: &[u8],
-        ctx: MessageContext,
+        t_msg: u64,
+        ctx: &SessionContext,
         enc_tag: &ElGamalCiphertext,
     ) -> bool {
-        // Unpack context
-        let (_id, t_msg) = ctx;
-
-        let is_time_valid = t_msg < t_expiry;
+        let is_time_valid = t_msg < ctx.t_expiry;
         let tag = elgamal::decrypt(&self.sk.sk_dec, enc_tag);
-        let is_sig_valid = mac::verify(k_f, m, ctx, &tag);
+        let is_sig_valid = mac::verify(k_f, m, &ctx.id, t_msg, &tag);
 
         is_time_valid && is_sig_valid
     }
@@ -145,10 +139,8 @@ impl Client {
     ///
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
-    /// * `id` - User Identifier
     /// * `k_f` - Franking Key
-    /// * `k_pub` - Public Key
-    /// * `t_expiry` - Signature Expiry Time
+    /// * `ctx` - Session Context
     /// * `sig` - Moderator Signature on User Registration
     ///
     /// # Returns
@@ -157,11 +149,10 @@ impl Client {
         &self,
         pk_m: &ModeratorPublicKey,
         k_f: &FrankingKey,
-        k_pub: &FrankingPublicKey,
-        t_expiry: u64,
+        ctx: &SessionContext,
         sig: &Signature,
     ) -> bool {
-        session_init(&self.id, &pk_m.pk_sig, k_f, k_pub, t_expiry, sig)
+        session_init(&pk_m.pk_sig, k_f, ctx, sig)
     }
 
     // AcceptSession Function
@@ -169,9 +160,7 @@ impl Client {
     ///
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
-    /// * `id` - Sender User Identifier
-    /// * `k_pub` - Sender Franking Public Key
-    /// * `t_expiry` - Signature Expiry Time
+    /// * `ctx` - Session Context
     /// * `sig` - Moderator Signature on Sender User Registration
     ///
     /// # Returns
@@ -179,16 +168,10 @@ impl Client {
     pub fn accept_session(
         &self,
         pk_m: &VerifyingKey,
-        id: &[u8; 32],
-        k_pub: &FrankingPublicKey,
-        t_expiry: u64,
+        ctx: &SessionContext,
         sig: &Signature,
     ) -> bool {
-        // Serialize message registration data and verify signature
-        let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
-
-        // Verify signature
-        pk_m.verify(&msg, sig).is_ok()
+        accept_session(pk_m, ctx, sig)
     }
 
     // Frank Function
@@ -199,10 +182,9 @@ impl Client {
     /// * `pk_m` - Moderator Public Key
     /// * `pk_r` - Recipient Public Key (ClientPublicKey)
     /// * `k_f` - Franking Key
-    /// * `k_pub` - Public Key
-    /// * `id` - User Identifier
     /// * `m` - Message to be Franked
     /// * `t_msg` - Message Timestamp
+    /// * `ctx` - Session Context
     ///
     /// # Returns
     /// * `FrankData` - contains the Franking AD
@@ -211,9 +193,9 @@ impl Client {
         pk_m: &ModeratorPublicKey,
         pk_r: &ClientPublicKey,
         k_f: &FrankingKey,
-        k_pub: &FrankingPublicKey,
         m: &[u8],
-        ctx: MessageContext,
+        t_msg: u64,
+        ctx: &SessionContext,
     ) -> ElGamalFrankingData {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
@@ -225,17 +207,16 @@ impl Client {
         let e_r = RistrettoPoint::mul_base(&alpha);
 
         // Compute MAC Tag t
-        let tag = mac::tag(k_f, m, ctx);
+        let tag = mac::tag(k_f, m, &ctx.id, t_msg);
 
         // Encrypt tag using ElGamal
         let (enc_tag, r_enc) = elgamal::encrypt(&pk_m.pk_enc, &tag);
 
         // Compute proof pi
-        let pi = zk_mac_dlog_prove(&r, k_f, &r_enc, k_pub, &pk_m.pk_enc, &enc_tag, m, ctx);
+        let pi = zk_mac_dlog_prove(&r, k_f, &r_enc, &pk_m.pk_enc, &enc_tag, m, t_msg, &ctx);
 
         // Return Franking Data
         ElGamalFrankingData {
-            k_pub: *k_pub,
             r_point: r,
             e_r,
             enc_tag,
@@ -248,29 +229,22 @@ impl Client {
     ///
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
-    /// * `pk_R` - Recipient's Public Key (ClientPublicKey)
-    /// * `m` - Message to be Verified
     /// * `ad` - Franking Data
-    /// * `id` - User Identifier
+    /// * `m` - Message to be Verified
     /// * `t_msg` - Message Timestamp
-    /// * `t_expiry` - Signature Expiry Time
+    /// * `ctx` - Session Context
     ///
     /// # Returns
     /// * `bool` - indicating validity (true) or invalidity (false)
     pub fn verify(
         &self,
         pk_m: &ModeratorPublicKey,
-        pk_r: &ClientPublicKey,
         ad: &ElGamalFrankingData,
         m: &[u8],
-        ctx: MessageContext,
-        t_expiry: u64,
+        t_msg: u64,
+        ctx: &SessionContext,
     ) -> Result<ElGamalCiphertext, Error> {
-        // Unpack context
-        let (_id, t_msg) = ctx;
-
         let ElGamalFrankingData {
-            k_pub,
             r_point,
             e_r,
             enc_tag,
@@ -279,9 +253,8 @@ impl Client {
 
         let recomputed_r = self.sk * e_r;
         let is_r_valid = &recomputed_r == r_point;
-        let is_t_valid = t_msg < t_expiry;
-        let is_pi_valid =
-            zk_mac_dlog_verify(r_point, k_pub, pk_r, &pk_m.pk_enc, enc_tag, m, ctx, pi);
+        let is_t_valid = t_msg < ctx.t_expiry;
+        let is_pi_valid = zk_mac_dlog_verify(r_point, &pk_m.pk_enc, enc_tag, m, t_msg, ctx, pi);
 
         if is_r_valid && is_t_valid && is_pi_valid {
             Ok(*enc_tag)
@@ -297,6 +270,8 @@ impl Client {
 #[cfg(test)]
 mod test {
 
+    use signature::Verifier;
+
     use super::*;
 
     #[test]
@@ -307,8 +282,13 @@ mod test {
         let t_expiry = compute_timestamp(WEEK_OFFSET);
         let (_k_f, k_pub, sig) = moderator.register_user(&client.id, t_expiry);
 
-        let data: [u8; REGISTRATION_SERIALIZATION_LEN] =
-            serialize_registration(&client.id, &k_pub, t_expiry);
+        let ctx = SessionContext {
+            id: client.id,
+            k_pub,
+            t_expiry,
+        };
+
+        let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(&ctx);
 
         assert!(moderator.pk.pk_sig.verify(&data, &sig).is_ok());
     }

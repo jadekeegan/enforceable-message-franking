@@ -31,31 +31,30 @@ pub struct MacOrDlogZKProof {
 /// * `r_point` - Ristretto Point R
 /// * `k_f` - Franking Key
 /// * `r_enc` - Random scalar used in ElGamal encryption
-/// * `k_pub` - Franking Public Key
 /// * `pk_enc` - ElGamal Public Key
 /// * `enc_tag` - ElGamal Encrypted MAC Tag
 /// * `m` - Message
-/// * `id` - User Identifier
 /// * `t_msg` - Message Timestamp
+/// * `ctx` - Session Context
 pub fn zk_mac_dlog_prove(
     r_point: &RistrettoPoint,
     k_f: &FrankingKey,
     r_enc: &Scalar,
-    k_pub: &FrankingPublicKey,
     pk_enc: &ElGamalPublicKey,
     enc_tag: &ElGamalCiphertext,
     m: &[u8],
-    ctx: MessageContext,
+    t_msg: u64,
+    ctx: &SessionContext,
 ) -> MacOrDlogZKProof {
     // Initialize RNG
     let mut rng = OsRng;
 
     // Unpack franking key
     let (x0, x1) = k_f;
-    let (g0, g1) = k_pub;
+    let (g0, g1) = &ctx.k_pub;
 
     // Compute message hash h
-    let h_m = hash_context(m, ctx);
+    let h_m = hash_context(m, &ctx.id, t_msg);
 
     // Generate random scalars r0, r1, r2
     let r0 = Scalar::random(&mut rng);
@@ -82,7 +81,8 @@ pub fn zk_mac_dlog_prove(
             g0, g1, r_point, &enc_tag.0, &enc_tag.1, &t0, &t1, &t_c1, &t_c2, &t_dlog,
         ],
         m,
-        ctx,
+        &ctx.id,
+        t_msg,
     );
 
     // Compute franking key challenge
@@ -113,25 +113,22 @@ pub fn zk_mac_dlog_prove(
 ///
 /// # Arguments
 /// * `r_point` - Ristretto Point R
-/// * `k_pub` - Public Key
-/// * `pk_r` - Recipient's Public Key
 /// * `pk_enc` - ElGamal Public Key
 /// * `enc_tag` - ElGamal Encrypted MAC Tag
 /// * `m` - Message
-/// * `id` - User Identifier
 /// * `t_msg` - Message Timestamp
+/// * `ctx` - Session Context
 /// * `pi` - ZK Proof
 ///
 /// # Returns
 /// * `bool` - indicating validity (true) or invalidity (false)
 pub fn zk_mac_dlog_verify(
     r_point: &RistrettoPoint,
-    k_pub: &FrankingPublicKey,
-    _pk_r: &ClientPublicKey,
     pk_enc: &ElGamalPublicKey,
     enc_tag: &ElGamalCiphertext,
     m: &[u8],
-    ctx: MessageContext,
+    t_msg: u64,
+    ctx: &SessionContext,
     pi: &MacOrDlogZKProof,
 ) -> bool {
     // Unpack proof
@@ -150,7 +147,7 @@ pub fn zk_mac_dlog_verify(
     } = pi;
 
     // Unpack public key
-    let (g0, g1) = k_pub;
+    let (g0, g1) = &ctx.k_pub;
 
     // Recompute challenge c
     let c = hash_challenge(
@@ -158,12 +155,13 @@ pub fn zk_mac_dlog_verify(
             g0, g1, r_point, &enc_tag.0, &enc_tag.1, t0, t1, t_c1, t_c2, t_dlog,
         ],
         m,
-        ctx,
+        &ctx.id,
+        t_msg,
     );
     let v_c = c == (c_frank + c_dlog);
 
     // Compute message hash h
-    let h_m = hash_context(m, ctx);
+    let h_m = hash_context(m, &ctx.id, t_msg);
     let z_mac = RistrettoPoint::mul_base(&(z0 + z1 * h_m));
 
     // Verify commitments
@@ -176,7 +174,12 @@ pub fn zk_mac_dlog_verify(
     v_c && v0 && v1 && v_c1 && v_c2 && v_dlog
 }
 
-pub fn hash_challenge(points: [&RistrettoPoint; 10], m: &[u8], ctx: MessageContext) -> Scalar {
+pub fn hash_challenge(
+    points: [&RistrettoPoint; 10],
+    m: &[u8],
+    id: &[u8; 32],
+    t_msg: u64,
+) -> Scalar {
     use sha2::{Digest, Sha256};
 
     let mut hasher = Sha256::new();
@@ -187,7 +190,6 @@ pub fn hash_challenge(points: [&RistrettoPoint; 10], m: &[u8], ctx: MessageConte
     }
 
     // Hash context
-    let (id, t_msg) = ctx;
     hasher.update(id);
     hasher.update(t_msg.to_le_bytes());
 
@@ -210,11 +212,11 @@ mod test {
     // Deterministic test fixture
     fn test_params() -> (
         FrankingKey,
-        FrankingPublicKey,
         ElGamalPublicKey,
         RistrettoPoint,
         &'static [u8],
-        MessageContext,
+        u64,
+        SessionContext,
     ) {
         let k_f = (Scalar::from(1u64), Scalar::from(2u64));
         let k_pub = (
@@ -224,39 +226,40 @@ mod test {
         let pk_enc = RistrettoPoint::mul_base(&Scalar::from(3u64));
         let r_point = RistrettoPoint::mul_base(&Scalar::from(5u64));
         let m = b"Test message";
-        let ctx = (
-            [0u8; 32], //id
-            12345u64,  // t_msg
-        );
+        let t_msg = 0u64;
+        let ctx = SessionContext {
+            id: [0u8; 32],      //id
+            k_pub,              // k_pub
+            t_expiry: 12345u64, // t_expiry
+        };
 
-        (k_f, k_pub, pk_enc, r_point, m, ctx)
+        (k_f, pk_enc, r_point, m, t_msg, ctx)
     }
 
     #[test]
     fn test_valid_proof_verifies() {
         // Dummy values
-        let (k_f, k_pub, pk_enc, r_point, m, ctx) = test_params();
+        let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, &ctx.id, t_msg);
         let r_enc = Scalar::from(7u64);
         let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
 
         // Compute proof on k_f and tag
-        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r_enc, &k_pub, &pk_enc, &enc_tag, m, ctx);
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r_enc, &pk_enc, &enc_tag, m, t_msg, &ctx);
 
-        let is_valid =
-            zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &pk_enc, &enc_tag, m, ctx, &pi);
+        let is_valid = zk_mac_dlog_verify(&r_point, &pk_enc, &enc_tag, m, t_msg, &ctx, &pi);
         assert!(is_valid);
     }
 
     #[test]
     fn test_wrong_franking_key_rejected() {
         // Dummy values
-        let (k_f, k_pub, pk_enc, r_point, m, ctx) = test_params();
+        let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, &ctx.id, t_msg);
         let r_enc = Scalar::from(7u64);
         let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
 
@@ -266,25 +269,24 @@ mod test {
             &r_point,
             &invalid_k_f,
             &r_enc,
-            &k_pub,
             &pk_enc,
             &enc_tag,
             m,
-            ctx,
+            t_msg,
+            &ctx,
         );
 
-        let is_valid =
-            zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &pk_enc, &enc_tag, m, ctx, &pi);
+        let is_valid = zk_mac_dlog_verify(&r_point, &pk_enc, &enc_tag, m, t_msg, &ctx, &pi);
         assert!(!is_valid);
     }
 
     #[test]
     fn test_wrong_tag_rejected() {
         // Dummy values
-        let (k_f, k_pub, pk_enc, r_point, m, ctx) = test_params();
+        let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, &ctx.id, t_msg);
         let r_enc = Scalar::from(7u64);
         let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
 
@@ -294,15 +296,14 @@ mod test {
             &r_point,
             &k_f,
             &r_enc,
-            &k_pub,
             &pk_enc,
             &invalid_enc_tag,
             m,
-            ctx,
+            t_msg,
+            &ctx,
         );
 
-        let is_valid =
-            zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &pk_enc, &enc_tag, m, ctx, &pi);
+        let is_valid = zk_mac_dlog_verify(&r_point, &pk_enc, &enc_tag, m, t_msg, &ctx, &pi);
 
         assert!(!is_valid);
     }
@@ -310,52 +311,51 @@ mod test {
     #[test]
     fn test_wrong_message_rejected() {
         // Dummy values
-        let (k_f, k_pub, pk_enc, r_point, m, ctx) = test_params();
+        let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, &ctx.id, t_msg);
         let r_enc = Scalar::from(7u64);
         let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
 
         // Compute proof on k_f and invalid message
         let invalid_m = b"Invalid message";
         let pi = zk_mac_dlog_prove(
-            &r_point, &k_f, &r_enc, &k_pub, &pk_enc, &enc_tag, invalid_m, ctx,
+            &r_point, &k_f, &r_enc, &pk_enc, &enc_tag, invalid_m, t_msg, &ctx,
         );
 
-        let is_valid =
-            zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &pk_enc, &enc_tag, m, ctx, &pi);
+        let is_valid = zk_mac_dlog_verify(&r_point, &pk_enc, &enc_tag, m, t_msg, &ctx, &pi);
         assert!(!is_valid);
     }
 
     #[test]
     fn test_wrong_context_rejected() {
         // Dummy values
-        let (k_f, k_pub, pk_enc, r_point, m, ctx) = test_params();
+        let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, ctx);
+        let tag = tag(&k_f, m, &ctx.id, t_msg);
         let r_enc = Scalar::from(7u64);
         let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
 
         // Compute proof on k_f and tag with invalid context
-        let invalid_ctx = (
-            [1u8; 32], // id
-            54321u64,  // t_msg
-        );
+        let invalid_ctx = SessionContext {
+            id: [1u8; 32],
+            k_pub: ctx.k_pub,
+            t_expiry: ctx.t_expiry + 1,
+        };
         let pi = zk_mac_dlog_prove(
             &r_point,
             &k_f,
             &r_enc,
-            &k_pub,
             &pk_enc,
             &enc_tag,
             m,
-            invalid_ctx,
+            t_msg,
+            &invalid_ctx,
         );
 
-        let is_valid =
-            zk_mac_dlog_verify(&r_point, &k_pub, &r_point, &pk_enc, &enc_tag, m, ctx, &pi);
+        let is_valid = zk_mac_dlog_verify(&r_point, &pk_enc, &enc_tag, m, t_msg, &ctx, &pi);
         assert!(!is_valid);
     }
 }

@@ -5,7 +5,7 @@ use federated_franking_impl::toolbox::lib_common::*;
 pub fn bench_basic_frank(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (_moderator, sender, receiver, k_f, k_pub, _sig) =
+    let (_moderator, sender, receiver, k_f, ctx, _sig) =
         test_basic_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes
@@ -20,13 +20,7 @@ pub fn bench_basic_frank(c: &mut Criterion) {
             msg_size,
             |b, &_msg_size| {
                 b.iter(|| {
-                    black_box(sender.frank(
-                        &receiver.pk,
-                        &k_f,
-                        &k_pub,
-                        ms[j].as_bytes(),
-                        (sender.id, t_msg),
-                    ));
+                    black_box(sender.frank(&receiver.pk, &k_f, ms[j].as_bytes(), t_msg, &ctx));
                 })
             },
         );

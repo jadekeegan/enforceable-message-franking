@@ -20,9 +20,14 @@ pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
 // Type Definitions
 pub type FrankingKey = (Scalar, Scalar);
 pub type FrankingPublicKey = (RistrettoPoint, RistrettoPoint);
-pub type MessageContext = ([u8; 32], u64); // (id, t_msg)
 pub type ClientSecretKey = Scalar;
 pub type ClientPublicKey = RistrettoPoint;
+
+pub struct SessionContext {
+    pub id: [u8; 32],             // User Identifier
+    pub k_pub: FrankingPublicKey, // Franking Public Key (g0, g1)
+    pub t_expiry: u64,            // Signature Expiry Time
+}
 
 // Compress Ristretto Point
 /// Compresses a given Ristretto Point into its byte representation.
@@ -139,8 +144,15 @@ pub fn register_user(
     // Public Key Generation (g^x0, g^x1)
     let k_pub = compute_public_key(&k_f);
 
+    // Construct session context for serialization
+    let ctx = SessionContext {
+        id: *id,
+        k_pub,
+        t_expiry,
+    };
+
     // Serialize registration data (id || k_pub || t_expiry)
-    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, &k_pub, t_expiry);
+    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(&ctx);
 
     // Signature over registration data
     let sig = sk_m.sign(&msg);
@@ -162,19 +174,17 @@ pub fn register_user(
 /// # Returns
 /// * `bool` - indicating validity (true) or invalidity (false)
 pub fn session_init(
-    id: &[u8; 32],
     pk_m: &VerifyingKey,
     k_f: &FrankingKey,
-    k_pub: &FrankingPublicKey,
-    t_expiry: u64,
+    ctx: &SessionContext,
     sig: &Signature,
 ) -> bool {
     // Verify FrankingKey and PublicKey
     let computed_k_pub = compute_public_key(k_f);
-    let is_k_pub_valid = k_pub == &computed_k_pub;
+    let is_k_pub_valid = &ctx.k_pub == &computed_k_pub;
 
     // Serialize message registration data and verify signature
-    let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
+    let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(ctx);
     let is_sig_valid = pk_m.verify(&data, sig).is_ok();
 
     is_k_pub_valid && is_sig_valid
@@ -185,22 +195,14 @@ pub fn session_init(
 ///
 /// # Arguments
 /// * `pk_m` - Moderator Verifying Key
-/// * `id` - User Identifier
-/// * `k_pub` - Public Key
-/// * `t_expiry` - Signature Expiry Time
+/// * `ctx` - Session Context
 /// * `sig` - Moderator Signature on User Registration
 ///
 /// # Returns
 /// * `bool` - indicating acceptance (true) or rejection (false)
-pub fn accept_session(
-    pk_m: &VerifyingKey,
-    id: &[u8; 32],
-    k_pub: &FrankingPublicKey,
-    t_expiry: u64,
-    sig: &Signature,
-) -> bool {
+pub fn accept_session(pk_m: &VerifyingKey, ctx: &SessionContext, sig: &Signature) -> bool {
     // Serialize message registration data and verify signature
-    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(id, k_pub, t_expiry);
+    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(ctx);
 
     // Verify signature
     pk_m.verify(&msg, sig).is_ok()
@@ -216,23 +218,18 @@ pub fn accept_session(
 ///
 /// # Returns
 /// * `[u8; REGISTRATION_SERIALIZATION_LEN]` - Serialized Registration Data
-pub fn serialize_registration(
-    id: &[u8; 32],
-    k_pub: &FrankingPublicKey,
-    t_expiry: u64,
-) -> [u8; REGISTRATION_SERIALIZATION_LEN] {
+pub fn serialize_registration(ctx: &SessionContext) -> [u8; REGISTRATION_SERIALIZATION_LEN] {
     let mut msg = [0u8; REGISTRATION_SERIALIZATION_LEN];
 
     // Copy id into msg (no serialization needed as it's already [u8; 32])
-    msg[..32].copy_from_slice(id);
-
+    msg[..32].copy_from_slice(&ctx.id);
     // Serialize g0 and g1 and copy into msg
-    let (g0, g1) = k_pub;
+    let (g0, g1) = &ctx.k_pub;
     msg[32..64].copy_from_slice(&compress_point(g0));
     msg[64..96].copy_from_slice(&compress_point(g1));
 
     // Serialize t_expiry and copy into msg
-    msg[96..104].copy_from_slice(&t_expiry.to_le_bytes());
+    msg[96..104].copy_from_slice(&ctx.t_expiry.to_le_bytes());
 
     msg
 }
@@ -241,6 +238,19 @@ pub fn serialize_registration(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_session_context() -> (RistrettoPoint, RistrettoPoint, SessionContext) {
+        let g0 = RistrettoPoint::default();
+        let g1 = RistrettoPoint::default();
+
+        let ctx = SessionContext {
+            id: [0u8; 32],
+            k_pub: (g0, g1),
+            t_expiry: 1_000_000u64,
+        };
+
+        (g0, g1, ctx)
+    }
 
     #[test]
     fn test_compute_timestamp() {
@@ -323,13 +333,8 @@ mod tests {
 
     #[test]
     fn test_serialize_registration_length() {
-        let id = [0u8; 32];
-        let g0 = RistrettoPoint::default();
-        let g1 = RistrettoPoint::default();
-        let k_pub = (g0, g1);
-        let t_expiry = 1_000_000u64;
-
-        let serialized = serialize_registration(&id, &k_pub, t_expiry);
+        let (_g0, _g1, ctx) = test_session_context();
+        let serialized = serialize_registration(&ctx);
 
         assert_eq!(
             serialized.len(),
@@ -340,14 +345,10 @@ mod tests {
 
     #[test]
     fn test_serialize_registration_is_deterministic() {
-        let id = [0u8; 32];
-        let g0 = RistrettoPoint::default();
-        let g1 = RistrettoPoint::default();
-        let k_pub = (g0, g1);
-        let t_expiry = 1_000_000u64;
+        let (_g0, _g1, ctx) = test_session_context();
 
-        let serialized1 = serialize_registration(&id, &k_pub, t_expiry);
-        let serialized2 = serialize_registration(&id, &k_pub, t_expiry);
+        let serialized1 = serialize_registration(&ctx);
+        let serialized2 = serialize_registration(&ctx);
 
         assert_eq!(
             serialized1, serialized2,
@@ -357,15 +358,11 @@ mod tests {
 
     #[test]
     fn test_serialize_registration_corret_contents() {
-        let id = [0u8; 32];
-        let g0 = RistrettoPoint::default();
-        let g1 = RistrettoPoint::default();
-        let k_pub = (g0, g1);
-        let t_expiry = 1_000_000u64;
+        let (g0, g1, ctx) = test_session_context();
 
-        let serialized = serialize_registration(&id, &k_pub, t_expiry);
+        let serialized = serialize_registration(&ctx);
 
-        assert_eq!(&serialized[..32], &id, "Serialized id is incorrect");
+        assert_eq!(&serialized[..32], &ctx.id, "Serialized id is incorrect");
         assert_eq!(
             &serialized[32..64],
             &compress_point(&g0),
@@ -378,7 +375,7 @@ mod tests {
         );
         assert_eq!(
             &serialized[96..104],
-            &t_expiry.to_le_bytes(),
+            &ctx.t_expiry.to_le_bytes(),
             "Serialized t_expiry is incorrect"
         );
     }

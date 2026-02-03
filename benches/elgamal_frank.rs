@@ -5,7 +5,7 @@ use federated_franking_impl::toolbox::lib_common::*;
 pub fn bench_elgamal_frank(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (moderator, sender, receiver, k_f, k_pub, _sig) =
+    let (moderator, sender, receiver, k_f, ctx, _sig) =
         test_elgamal_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes
@@ -24,9 +24,9 @@ pub fn bench_elgamal_frank(c: &mut Criterion) {
                         &moderator.pk,
                         &receiver.pk,
                         &k_f,
-                        &k_pub,
                         ms[j].as_bytes(),
-                        (sender.id, t_msg),
+                        t_msg,
+                        &ctx,
                     ));
                 })
             },

@@ -14,11 +14,10 @@ use rand::rngs::OsRng;
 
 // Structs
 pub struct BasicFrankingData {
-    pub k_pub: FrankingPublicKey, // Public Key (g0, g1)
-    pub r_point: RistrettoPoint,  // Ristretto Point R
-    pub e_r: RistrettoPoint,      // Ephemeral Ristretto Point E_r
-    pub tag: RistrettoPoint,      // MAC Tag t
-    pub pi: MacOrDlogZKProof,     // ZK Proof of Knowledge of MAC Tag
+    pub r_point: RistrettoPoint, // Ristretto Point R
+    pub e_r: RistrettoPoint,     // Ephemeral Ristretto Point E_r
+    pub tag: RistrettoPoint,     // MAC Tag t
+    pub pi: MacOrDlogZKProof,    // ZK Proof of Knowledge of MAC Tag
 }
 
 // Helper Functions
@@ -91,16 +90,13 @@ impl Moderator {
     pub fn moderate(
         &self,
         k_f: &FrankingKey,
-        t_expiry: u64,
         m: &[u8],
-        ctx: MessageContext,
+        t_msg: u64,
+        ctx: &SessionContext,
         tag: &RistrettoPoint,
     ) -> bool {
-        // Unpack context
-        let (_id, t_msg) = ctx;
-
-        let is_time_valid = t_msg < t_expiry;
-        let is_sig_valid = mac::verify(k_f, m, ctx, tag);
+        let is_time_valid = t_msg < ctx.t_expiry;
+        let is_sig_valid = mac::verify(k_f, m, &ctx.id, t_msg, tag);
 
         is_time_valid && is_sig_valid
     }
@@ -131,10 +127,8 @@ impl Client {
     ///
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
-    /// * `id` - User Identifier
     /// * `k_f` - Franking Key
-    /// * `k_pub` - Public Key
-    /// * `t_expiry` - Signature Expiry Time
+    /// * `ctx` - Session Context
     /// * `sig` - Moderator Signature on User Registration
     ///
     /// # Returns
@@ -143,11 +137,10 @@ impl Client {
         &self,
         pk_m: &VerifyingKey,
         k_f: &FrankingKey,
-        k_pub: &FrankingPublicKey,
-        t_expiry: u64,
+        ctx: &SessionContext,
         sig: &Signature,
     ) -> bool {
-        session_init(&self.id, pk_m, k_f, k_pub, t_expiry, sig)
+        session_init(pk_m, k_f, ctx, sig)
     }
 
     // AcceptSession Function
@@ -165,12 +158,10 @@ impl Client {
     pub fn accept_session(
         &self,
         pk_m: &VerifyingKey,
-        id: &[u8; 32],
-        k_pub: &FrankingPublicKey,
-        t_expiry: u64,
+        ctx: &SessionContext,
         sig: &Signature,
     ) -> bool {
-        accept_session(pk_m, id, k_pub, t_expiry, sig)
+        accept_session(pk_m, ctx, sig)
     }
 
     // Frank Function
@@ -178,11 +169,8 @@ impl Client {
     ///
     /// # Arguments
     ///
-    /// * `pk_m` - Moderator Public Key
     /// * `pk_r` - Recipient Public Key (ClientPublicKey)
     /// * `k_f` - Franking Key
-    /// * `k_pub` - Public Key
-    /// * `id` - User Identifier
     /// * `m` - Message to be Franked
     /// * `t_msg` - Message Timestamp
     ///
@@ -190,12 +178,11 @@ impl Client {
     /// * `FrankData` - contains the Franking AD
     pub fn frank(
         &self,
-        // _pk_m: &VerifyingKey, (Not Used in this Implementation)
         pk_r: &ClientPublicKey,
         k_f: &FrankingKey,
-        k_pub: &FrankingPublicKey,
         m: &[u8],
-        ctx: MessageContext,
+        t_msg: u64,
+        ctx: &SessionContext,
     ) -> BasicFrankingData {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
@@ -207,14 +194,13 @@ impl Client {
         let e_r = RistrettoPoint::mul_base(&alpha);
 
         // Compute MAC Tag t
-        let tag = mac::tag(k_f, m, ctx);
+        let tag = mac::tag(k_f, m, &ctx.id, t_msg);
 
         // Compute proof pi
-        let pi = zk_mac_dlog_prove(&r, k_f, k_pub, &tag, m, ctx);
+        let pi = zk_mac_dlog_prove(&r, k_f, &tag, m, t_msg, ctx);
 
         // Return Franking Data
         BasicFrankingData {
-            k_pub: *k_pub,
             r_point: r,
             e_r,
             tag,
@@ -226,30 +212,22 @@ impl Client {
     /// Verifies that a message has been properly franked.
     ///
     /// # Arguments
-    /// * `pk_m` - Moderator Public Key
     /// * `pk_R` - Recipient's Public Key (ClientPublicKey)
     /// * `m` - Message to be Verified
     /// * `ad` - Franking Data
-    /// * `id` - User Identifier
     /// * `t_msg` - Message Timestamp
-    /// * `t_expiry` - Signature Expiry Time
+    /// * `ctx` - Session Context
     ///
     /// # Returns
     /// * `bool` - indicating validity (true) or invalidity (false)
     pub fn verify(
         &self,
-        // pk_m: &VerifyingKey,
-        pk_r: &ClientPublicKey,
         ad: &BasicFrankingData,
         m: &[u8],
-        ctx: MessageContext,
-        t_expiry: u64,
+        t_msg: u64,
+        ctx: &SessionContext,
     ) -> Result<RistrettoPoint, Error> {
-        // Unpack context
-        let (_id, t_msg) = ctx;
-
         let BasicFrankingData {
-            k_pub,
             r_point,
             e_r,
             tag,
@@ -258,8 +236,8 @@ impl Client {
 
         let recomputed_r = self.sk * e_r;
         let is_r_valid = &recomputed_r == r_point;
-        let is_t_valid = t_msg < t_expiry;
-        let is_pi_valid = zk_mac_dlog_verify(r_point, k_pub, pk_r, tag, m, ctx, pi);
+        let is_t_valid = t_msg < ctx.t_expiry;
+        let is_pi_valid = zk_mac_dlog_verify(r_point, tag, m, t_msg, ctx, pi);
 
         if is_r_valid && is_t_valid && is_pi_valid {
             Ok(*tag)
@@ -286,9 +264,13 @@ mod test {
 
         let t_expiry = compute_timestamp(WEEK_OFFSET);
         let (_k_f, k_pub, sig) = moderator.register_user(&client.id, t_expiry);
+        let ctx = SessionContext {
+            id: client.id,
+            k_pub,
+            t_expiry,
+        };
 
-        let data: [u8; REGISTRATION_SERIALIZATION_LEN] =
-            serialize_registration(&client.id, &k_pub, t_expiry);
+        let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(&ctx);
 
         assert!(moderator.pk.verify(&data, &sig).is_ok());
     }

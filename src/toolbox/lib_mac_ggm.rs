@@ -1,4 +1,4 @@
-use crate::toolbox::lib_common::{FrankingKey, MessageContext};
+use crate::toolbox::lib_common::FrankingKey;
 
 use rand::rngs::OsRng;
 
@@ -33,10 +33,9 @@ pub fn keygen() -> FrankingKey {
 ///
 /// # Returns
 /// * `[u8; 32]` - SHA-256 hash of the input data as a 32-byte array
-pub fn hash_context(m: &[u8], ctx: MessageContext) -> Scalar {
+pub fn hash_context(m: &[u8], id: &[u8; 32], t_msg: u64) -> Scalar {
     let mut hasher = Sha256::new();
 
-    let (id, t_msg) = ctx;
     hasher.update(id);
     hasher.update(t_msg.to_le_bytes());
     hasher.update(m);
@@ -57,12 +56,12 @@ pub fn hash_context(m: &[u8], ctx: MessageContext) -> Scalar {
 ///
 /// # Returns
 /// * `RistrettoPoint` - MAC Tag t
-pub fn tag(k_f: &FrankingKey, m: &[u8], ctx: MessageContext) -> RistrettoPoint {
+pub fn tag(k_f: &FrankingKey, m: &[u8], id: &[u8; 32], t_msg: u64) -> RistrettoPoint {
     // Unpack franking key
     let (x0, x1) = k_f;
 
     // Hash message context
-    let h_m = hash_context(m, ctx);
+    let h_m = hash_context(m, id, t_msg);
 
     // g^(x0 + x1 * H(m))
     let exp = *x0 + (*x1 * h_m);
@@ -82,9 +81,15 @@ pub fn tag(k_f: &FrankingKey, m: &[u8], ctx: MessageContext) -> RistrettoPoint {
 ///
 /// # Returns
 /// * `bool` - indicating validity (true) or invalidity (false)
-pub fn verify(k_f: &FrankingKey, m: &[u8], ctx: MessageContext, tag: &RistrettoPoint) -> bool {
+pub fn verify(
+    k_f: &FrankingKey,
+    m: &[u8],
+    id: &[u8; 32],
+    t_msg: u64,
+    tag: &RistrettoPoint,
+) -> bool {
     // Compute expected tag
-    let expected = self::tag(k_f, m, ctx);
+    let expected = self::tag(k_f, m, id, t_msg);
 
     // Check if expected tag matches provided tag
     expected == *tag
@@ -94,6 +99,15 @@ pub fn verify(k_f: &FrankingKey, m: &[u8], ctx: MessageContext, tag: &RistrettoP
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn test_params() -> (FrankingKey, [u8; 32], u64, &'static [u8]) {
+        let k_f = keygen();
+        let id = [0u8; 32];
+        let t_msg = 1_000_000u64;
+        let m = b"Test message";
+
+        (k_f, id, t_msg, m)
+    }
 
     #[test]
     fn test_mac_keygen_is_unique() {
@@ -107,10 +121,11 @@ mod tests {
     fn test_hash_context_is_unique_for_different_messages() {
         let m1 = b"Test message 1";
         let m2 = b"Test message 2";
-        let ctx = ([0u8; 32], 1_000_000u64);
+        let id = [0u8; 32];
+        let t_msg = 1_000_000u64;
 
-        let h1 = hash_context(m1, ctx);
-        let h2 = hash_context(m2, ctx);
+        let h1 = hash_context(m1, &id, t_msg);
+        let h2 = hash_context(m2, &id, t_msg);
 
         assert_ne!(
             h1, h2,
@@ -121,22 +136,21 @@ mod tests {
     #[test]
     fn test_hash_context_is_deterministic() {
         let m = b"Test message";
-        let ctx = ([0u8; 32], 1_000_000u64);
+        let id = [0u8; 32];
+        let t_msg = 1_000_000u64;
 
-        let h1 = hash_context(m, ctx);
-        let h2 = hash_context(m, ctx);
+        let h1 = hash_context(m, &id, t_msg);
+        let h2 = hash_context(m, &id, t_msg);
 
         assert_eq!(h1, h2, "Hash context is not deterministic");
     }
 
     #[test]
     fn test_mac_tag_is_correct() {
-        let k_f = (Scalar::ONE, Scalar::ONE + Scalar::ONE);
-        let m = b"Test message";
-        let ctx = ([0u8; 32], 1_000_000u64);
+        let (k_f, id, t_msg, m) = test_params();
 
-        let tag = tag(&k_f, m, ctx);
-        let expected_exp = k_f.0 + (k_f.1 * hash_context(m, ctx));
+        let tag = tag(&k_f, m, &id, t_msg);
+        let expected_exp = k_f.0 + (k_f.1 * hash_context(m, &id, t_msg));
         let expected_tag = RistrettoPoint::mul_base(&expected_exp);
 
         assert_eq!(tag, expected_tag, "Computed MAC tag is incorrect");
@@ -144,50 +158,43 @@ mod tests {
 
     #[test]
     fn test_mac_tag_is_unique_for_different_messages() {
-        let k_f = keygen();
         let m1 = b"Test message 1";
         let m2 = b"Test message 2";
-        let ctx = ([0u8; 32], 1_000_000u64);
+        let (k_f, id, t_msg, _) = test_params();
 
-        let tag1 = tag(&k_f, m1, ctx);
-        let tag2 = tag(&k_f, m2, ctx);
+        let tag1 = tag(&k_f, m1, &id, t_msg);
+        let tag2 = tag(&k_f, m2, &id, t_msg);
 
         assert_ne!(tag1, tag2, "MAC tags are not unique for different messages");
     }
 
     #[test]
     fn test_mac_tag_is_deterministic() {
-        let k_f = keygen();
-        let m = b"Test message";
-        let ctx = ([0u8; 32], 1_000_000u64);
+        let (k_f, id, t_msg, m) = test_params();
 
-        let tag1 = tag(&k_f, m, ctx);
-        let tag2 = tag(&k_f, m, ctx);
+        let tag1 = tag(&k_f, m, &id, t_msg);
+        let tag2 = tag(&k_f, m, &id, t_msg);
 
         assert_eq!(tag1, tag2, "MAC tag is not deterministic");
     }
 
     #[test]
     fn test_mac_verify_correctness() {
-        let k_f = keygen();
-        let m = b"Test message";
-        let ctx = ([0u8; 32], 1_000_000u64);
+        let (k_f, id, t_msg, m) = test_params();
 
-        let tag = tag(&k_f, m, ctx);
-        let is_valid = verify(&k_f, m, ctx, &tag);
+        let tag = tag(&k_f, m, &id, t_msg);
+        let is_valid = verify(&k_f, m, &id, t_msg, &tag);
 
         assert!(is_valid, "MAC verification failed for valid tag");
     }
 
     #[test]
     fn test_mac_verify_invalidity() {
-        let k_f = keygen();
-        let m = b"Test message";
-        let ctx = ([0u8; 32], 1_000_000u64);
+        let (k_f, id, t_msg, m) = test_params();
 
         let invalid_tag = RistrettoPoint::default();
 
-        let is_valid = verify(&k_f, m, ctx, &invalid_tag);
+        let is_valid = verify(&k_f, m, &id, t_msg, &invalid_tag);
 
         assert!(
             !is_valid,

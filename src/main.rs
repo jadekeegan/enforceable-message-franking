@@ -59,12 +59,11 @@ pub fn test_basic(msg_size: usize) {
     // Initialize Session Data (sets up moderator, sender, receiver, and sender keys)
     println!("===> Initializing Moderator, Sender, Receiver, and Sender Keys");
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (moderator, sender, receiver, k_f, k_pub, sig) =
-        test_basic_init_full_session_data(t_expiry);
+    let (moderator, sender, receiver, k_f, ctx, sig) = test_basic_init_full_session_data(t_expiry);
 
     // Sender Initializes Session
     println!("===> Sender Initializing Session");
-    let session_init_success = sender.session_init(&moderator.pk, &k_f, &k_pub, t_expiry, &sig);
+    let session_init_success = sender.session_init(&moderator.pk, &k_f, &ctx, &sig);
     status!(
         session_init_success,
         "Sender session initialization successful.",
@@ -73,8 +72,7 @@ pub fn test_basic(msg_size: usize) {
 
     // Receiver Verifies and Accepts Sender Session
     println!("===> Receiver Accepting Sender Session");
-    let accept_session_success =
-        receiver.accept_session(&moderator.pk, &sender.id, &k_pub, t_expiry, &sig);
+    let accept_session_success = receiver.accept_session(&moderator.pk, &ctx, &sig);
     status!(
         accept_session_success,
         "Receiver successfully accepted sender session.",
@@ -87,24 +85,17 @@ pub fn test_basic(msg_size: usize) {
 
     // Sender Frank Message
     println!("===> Sender Franking Message");
-    let fd = sender.frank(&receiver.pk, &k_f, &k_pub, m.as_bytes(), (sender.id, t_msg));
+    let fd = sender.frank(&receiver.pk, &k_f, m.as_bytes(), t_msg, &ctx);
 
     // Receiver Verifies Franking Data for Message
     println!("===> Receiver Verifying Franking Data for Message");
     let tag = receiver
-        .verify(
-            &receiver.pk,
-            &fd,
-            m.as_bytes(),
-            (sender.id, t_msg),
-            t_expiry,
-        )
+        .verify(&fd, m.as_bytes(), t_msg, &ctx)
         .expect("Franking data verification failed.");
 
     // Moderator Verifies Franking Data for Message for Moderation
     println!("===> Moderator Verifying Franking Data for Message");
-    let mod_verify_success =
-        moderator.moderate(&k_f, t_expiry, m.as_bytes(), (sender.id, t_msg), &tag);
+    let mod_verify_success = moderator.moderate(&k_f, m.as_bytes(), t_msg, &ctx, &tag);
     status!(
         mod_verify_success,
         "Moderator successfully verified franking data for message and tag.",
@@ -138,12 +129,12 @@ pub fn test_elgamal(msg_size: usize) {
     // Initialize Session Data (sets up moderator, sender, receiver, and sender keys)
     println!("===> Initializing Moderator, Sender, Receiver, and Sender Keys");
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (moderator, sender, receiver, k_f, k_pub, sig) =
+    let (moderator, sender, receiver, k_f, ctx, sig) =
         test_elgamal_init_full_session_data(t_expiry);
 
     // Sender Initializes Session
     println!("===> Sender Initializing Session");
-    let session_init_success = sender.session_init(&moderator.pk, &k_f, &k_pub, t_expiry, &sig);
+    let session_init_success = sender.session_init(&moderator.pk, &k_f, &ctx, &sig);
     status!(
         session_init_success,
         "Sender session initialization successful.",
@@ -152,8 +143,7 @@ pub fn test_elgamal(msg_size: usize) {
 
     // Receiver Verifies and Accepts Sender Session
     println!("===> Receiver Accepting Sender Session");
-    let accept_session_success =
-        receiver.accept_session(&moderator.pk.pk_sig, &sender.id, &k_pub, t_expiry, &sig);
+    let accept_session_success = receiver.accept_session(&moderator.pk.pk_sig, &ctx, &sig);
     status!(
         accept_session_success,
         "Receiver successfully accepted sender session.",
@@ -166,32 +156,17 @@ pub fn test_elgamal(msg_size: usize) {
 
     // Sender Frank Message
     println!("===> Sender Franking Message");
-    let fd = sender.frank(
-        &moderator.pk,
-        &receiver.pk,
-        &k_f,
-        &k_pub,
-        m.as_bytes(),
-        (sender.id, t_msg),
-    );
+    let fd = sender.frank(&moderator.pk, &receiver.pk, &k_f, m.as_bytes(), t_msg, &ctx);
 
     // Receiver Verifies Franking Data for Message
     println!("===> Receiver Verifying Franking Data for Message");
     let enc_tag = receiver
-        .verify(
-            &moderator.pk,
-            &receiver.pk,
-            &fd,
-            m.as_bytes(),
-            (sender.id, t_msg),
-            t_expiry,
-        )
+        .verify(&moderator.pk, &fd, m.as_bytes(), t_msg, &ctx)
         .expect("Franking data verification failed.");
 
     // Moderator Verifies Franking Data for Message for Moderation
     println!("===> Moderator Verifying Franking Data for Message");
-    let mod_verify_success =
-        moderator.moderate(&k_f, t_expiry, m.as_bytes(), (sender.id, t_msg), &enc_tag);
+    let mod_verify_success = moderator.moderate(&k_f, m.as_bytes(), t_msg, &ctx, &enc_tag);
     status!(
         mod_verify_success,
         "Moderator successfully verified franking data for message and tag.",
