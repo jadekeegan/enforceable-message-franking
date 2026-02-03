@@ -18,11 +18,10 @@ pub struct MacOrDlogZKProof {
     pub c_dlog: Scalar,  // Dlog challenge
 
     // Responses
-    pub z0: Scalar,            // r0 + c*x0
-    pub z1: Scalar,            // r1 + c*x1
-    pub z_mac: RistrettoPoint, // MAC response
-    pub z_enc: Scalar,         // ElGamal encryption response
-    pub z_dlog: Scalar,        // Dlog response
+    pub z0: Scalar,     // r0 + c*x0
+    pub z1: Scalar,     // r1 + c*x1
+    pub z_enc: Scalar,  // ElGamal encryption response
+    pub z_dlog: Scalar, // Dlog response
 }
 
 // ZK Proof of Knowledge of MAC Tag
@@ -92,7 +91,6 @@ pub fn zk_mac_dlog_prove(
     // Compute responses
     let z0 = r0 + c_frank * x0;
     let z1 = r1 + c_frank * x1;
-    let z_mac = RistrettoPoint::mul_base(&(z0 + z1 * h_m));
     let z_enc = r2 + c_frank * r_enc;
 
     MacOrDlogZKProof {
@@ -106,7 +104,6 @@ pub fn zk_mac_dlog_prove(
         z0,
         z1,
         z_dlog,
-        z_mac,
         z_enc,
     }
 }
@@ -149,7 +146,6 @@ pub fn zk_mac_dlog_verify(
         z0,
         z1,
         z_dlog,
-        z_mac,
         z_enc,
     } = pi;
 
@@ -166,12 +162,16 @@ pub fn zk_mac_dlog_verify(
     );
     let v_c = c == (c_frank + c_dlog);
 
+    // Compute message hash h
+    let h_m = hash_context(m, ctx);
+    let z_mac = RistrettoPoint::mul_base(&(z0 + z1 * h_m));
+
     // Verify commitments
-    let v0 = RistrettoPoint::mul_base(z0) == t0 + c_frank * g0;
-    let v1 = RistrettoPoint::mul_base(z1) == t1 + c_frank * g1;
-    let v_c1 = RistrettoPoint::mul_base(z_enc) == t_c1 + c_frank * enc_tag.0;
-    let v_c2 = z_enc * pk_enc + z_mac == t_c2 + c_frank * enc_tag.1;
-    let v_dlog = RistrettoPoint::mul_base(z_dlog) == t_dlog + c_dlog * r_point;
+    let v0 = RistrettoPoint::mul_base(z0) == t0 + c_frank * g0; // g^z0 == t0 * g0^c_frank
+    let v1 = RistrettoPoint::mul_base(z1) == t1 + c_frank * g1; // g^z1 == t1 * g1^c_frank
+    let v_c1 = RistrettoPoint::mul_base(z_enc) == t_c1 + c_frank * enc_tag.0; // g^z_enc == t_c1 * enc_tag.0^c_frank
+    let v_c2 = z_enc * pk_enc + z_mac == t_c2 + c_frank * enc_tag.1; // pk_enc^z_enc * g^(z0 + z1*h) == t_c2 * enc_tag.1^c_frank
+    let v_dlog = RistrettoPoint::mul_base(z_dlog) == t_dlog + c_dlog * r_point; // g^z_dlog == t_dlog * R^c_dlog
 
     v_c && v0 && v1 && v_c1 && v_c2 && v_dlog
 }
