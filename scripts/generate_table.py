@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Format benchmark results for the core scheme functions into a table.
-Usage: python scripts/generate_table.py [--scheme basic|elgamal]
+Usage: python scripts/generate_table.py [--scheme basic|elgamal|all]
 """
 
 import argparse
@@ -46,19 +46,28 @@ def print_markdown_table(data: Dict[str, Dict[int, float]], sizes: List[int]):
         print(row)
 
 
-def main():
-    """Generate benchmark results table."""
-    parser = argparse.ArgumentParser(description='Generate benchmark results table.')
-    parser.add_argument('--scheme', type=str, default='basic', help='Name of the scheme (e.g., "basic", "elgamal")')
-    args = parser.parse_args()
-    
+def generate_table(scheme: str):
     # Load benchmark data
-    data = load_benchmark_data(args.scheme, __file__)
+    data = load_benchmark_data(scheme, __file__)
     sizes = sorted({size for func_data in data.values() for size in func_data.keys()})
     
     # Output table
     print_markdown_table(data, sizes)
 
+
+def main():
+    """Generate benchmark results table."""
+    parser = argparse.ArgumentParser(description='Generate benchmark results table.')
+    parser.add_argument('--scheme', type=str, default='basic', help='Name of the scheme (e.g., "basic", "elgamal")')
+    args = parser.parse_args()
+
+    if (args.scheme == 'all'):
+        for scheme in ['basic', 'elgamal']:
+            print(f"\n===> Scheme: {scheme.upper()}\n")
+            generate_table(scheme)
+    else:
+        generate_table(args.scheme)
+    
 
 if __name__ == '__main__':
     main()

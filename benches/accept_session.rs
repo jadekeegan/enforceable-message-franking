@@ -5,7 +5,7 @@ use federated_franking_impl::toolbox::lib_common::*;
 pub fn bench_basic_accept_session(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (moderator, sender, _receiver, _k_f, ctx, sig) =
+    let (moderator, _sender, _receiver, _k_f, ctx, sig) =
         test_basic_init_full_session_data(t_expiry);
 
     // Benchmark
