@@ -177,7 +177,7 @@ pub fn zk_mac_dlog_verify(
 pub fn hash_challenge(
     points: [&RistrettoPoint; 10],
     m: &[u8],
-    id: &[u8; 32],
+    id: &ClientId,
     t_msg: u64,
 ) -> Scalar {
     use sha2::{Digest, Sha256};

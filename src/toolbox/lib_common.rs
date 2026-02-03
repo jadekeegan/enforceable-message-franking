@@ -22,9 +22,10 @@ pub type FrankingKey = (Scalar, Scalar);
 pub type FrankingPublicKey = (RistrettoPoint, RistrettoPoint);
 pub type ClientSecretKey = Scalar;
 pub type ClientPublicKey = RistrettoPoint;
+pub type ClientId = [u8; 32];
 
 pub struct SessionContext {
-    pub id: [u8; 32],             // User Identifier
+    pub id: ClientId,             // User Identifier
     pub k_pub: FrankingPublicKey, // Franking Public Key (g0, g1)
     pub t_expiry: u64,            // Signature Expiry Time
 }
@@ -114,7 +115,7 @@ pub fn compute_public_key(k_f: &FrankingKey) -> FrankingPublicKey {
 ///
 /// # Returns
 /// * `id` - Randomly generated user identifier
-pub fn generate_user_id() -> [u8; 32] {
+pub fn generate_user_id() -> ClientId {
     let mut id = [0u8; 32];
     OsRng.fill_bytes(&mut id);
 
@@ -135,7 +136,7 @@ pub fn generate_user_id() -> [u8; 32] {
 /// * `sig` - Moderator Signature on User Registration
 pub fn register_user(
     sk_m: &SigningKey,
-    id: &[u8; 32],
+    id: &ClientId,
     t_expiry: u64,
 ) -> (FrankingKey, FrankingPublicKey, Signature) {
     // Franking Key Generation (x0, x1)

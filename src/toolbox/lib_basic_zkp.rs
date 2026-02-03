@@ -155,7 +155,7 @@ pub fn zk_mac_dlog_verify(
     v_c && v0 && v1 && v_mac && v_dlog
 }
 
-pub fn hash_challenge(points: [&RistrettoPoint; 8], m: &[u8], id: &[u8; 32], t_msg: u64) -> Scalar {
+pub fn hash_challenge(points: [&RistrettoPoint; 8], m: &[u8], id: &ClientId, t_msg: u64) -> Scalar {
     use sha2::{Digest, Sha256};
 
     let mut hasher = Sha256::new();

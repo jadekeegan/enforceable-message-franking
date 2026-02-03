@@ -68,7 +68,7 @@ impl Moderator {
     /// * `sig` - Moderator Signature on User Registration
     pub fn register_user(
         &self,
-        id: &[u8; 32],
+        id: &ClientId,
         t_expiry: u64,
     ) -> (FrankingKey, FrankingPublicKey, Signature) {
         register_user(&self.sk, id, t_expiry)
@@ -96,15 +96,15 @@ impl Moderator {
         tag: &RistrettoPoint,
     ) -> bool {
         let is_time_valid = t_msg < ctx.t_expiry;
-        let is_sig_valid = mac::verify(k_f, m, &ctx.id, t_msg, tag);
+        let is_tag_valid = mac::verify(k_f, m, &ctx.id, t_msg, tag);
 
-        is_time_valid && is_sig_valid
+        is_time_valid && is_tag_valid
     }
 }
 
 // Client Properties
 pub struct Client {
-    pub id: [u8; 32],        // User Identifier
+    pub id: ClientId,        // User Identifier
     pub pk: ClientPublicKey, // User Public Key (g^sk)
     sk: ClientSecretKey,     // User Secret Key
 }

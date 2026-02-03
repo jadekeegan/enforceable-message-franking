@@ -1,3 +1,6 @@
+use std::mem;
+
+use curve25519_dalek::{RistrettoPoint, Scalar};
 use federated_franking_impl::schemes::bench_helpers::*;
 use federated_franking_impl::toolbox::lib_common::*;
 
@@ -26,17 +29,20 @@ struct Args {
 
     #[arg(long, default_value_t = 100)]
     msg_size: usize,
+
+    #[arg(long, default_value_t = false)]
+    print_costs: bool,
 }
 
 fn main() {
     let args = Args::parse();
 
     if args.basic {
-        test_basic(args.msg_size);
+        test_basic(args.msg_size, args.print_costs);
     }
 
     if args.elgamal {
-        test_elgamal(args.msg_size);
+        test_elgamal(args.msg_size, args.print_costs);
     }
 }
 
@@ -49,7 +55,7 @@ fn main() {
 ///
 /// # Returns
 /// * None
-pub fn test_basic(msg_size: usize) {
+pub fn test_basic(msg_size: usize, print_costs: bool) {
     println!(
         "======================== Started Testing Basic Scheme with Message of Size {} ====================",
         msg_size
@@ -79,6 +85,17 @@ pub fn test_basic(msg_size: usize) {
         "Receiver rejected sender session."
     );
 
+    if print_costs {
+        // Session Storage Cost
+        // (1) Franking Key (k_f): 1 Scalar
+        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey
+        let session_storage_cost = mem::size_of::<Scalar>()
+            + mem::size_of::<u64>()
+            + mem::size_of::<ClientId>()
+            + mem::size_of::<FrankingPublicKey>();
+        println!("Session Storage Overhead: {} (bytes)", session_storage_cost);
+    }
+
     // Initialize Message
     let m = test_init_message(msg_size);
     let t_msg = compute_timestamp(0);
@@ -86,6 +103,17 @@ pub fn test_basic(msg_size: usize) {
     // Sender Frank Message
     println!("===> Sender Franking Message");
     let fd = sender.frank(&receiver.pk, &k_f, m.as_bytes(), t_msg, &ctx);
+
+    if print_costs {
+        // Communication Cost of Franking Data
+        // (1) R (r_point): 1 RistrettoPoint
+        // (2) Ephemeral R (e_r): 1 RistrettoPoint
+        // (3) Tag (tag): 1 RistrettoPoint
+        // (4) Proof (pi): 4 Ristretto Points, 5 Scalars
+        let frank_cost =
+            mem::size_of::<RistrettoPoint>() * (1 + 1 + 1 + 4) + mem::size_of::<Scalar>() * 5;
+        println!("Franking Communication Cost: {} (bytes)", frank_cost);
+    }
 
     // Receiver Verifies Franking Data for Message
     println!("===> Receiver Verifying Franking Data for Message");
@@ -101,6 +129,14 @@ pub fn test_basic(msg_size: usize) {
         "Moderator successfully verified franking data for message and tag.",
         "Moderator rejected franking data for message and tag."
     );
+
+    if print_costs {
+        // Communication Cost of Moderation (Inputs to Moderate)
+        // (1) Tag (tag): 1 RistrettoPoint
+        // (2) Message Timestamp (t_msg): 1 u64
+        let mod_cost = mem::size_of::<RistrettoPoint>() + mem::size_of::<u64>();
+        println!("Moderation Communication Cost: {} (bytes)", mod_cost);
+    }
 
     println!();
     println!(
@@ -119,7 +155,7 @@ pub fn test_basic(msg_size: usize) {
 ///
 /// # Returns
 /// * None
-pub fn test_elgamal(msg_size: usize) {
+pub fn test_elgamal(msg_size: usize, print_costs: bool) {
     println!(
         "======================== Started Testing ElGamal Scheme with Message of Size {} ====================",
         msg_size
@@ -150,6 +186,17 @@ pub fn test_elgamal(msg_size: usize) {
         "Receiver rejected sender session."
     );
 
+    if print_costs {
+        // Session Storage Cost
+        // (1) Franking Key (k_f): 1 Scalar
+        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey
+        let session_storage_cost = mem::size_of::<Scalar>()
+            + mem::size_of::<u64>()
+            + mem::size_of::<ClientId>()
+            + mem::size_of::<FrankingPublicKey>();
+        println!("Session Storage Overhead: {} (bytes)", session_storage_cost);
+    }
+
     // Initialize Message
     let m = test_init_message(msg_size);
     let t_msg = compute_timestamp(0);
@@ -157,6 +204,17 @@ pub fn test_elgamal(msg_size: usize) {
     // Sender Frank Message
     println!("===> Sender Franking Message");
     let fd = sender.frank(&moderator.pk, &receiver.pk, &k_f, m.as_bytes(), t_msg, &ctx);
+
+    if print_costs {
+        // Communication Cost of Franking Data
+        // (1) R (r_point): 1 RistrettoPoint
+        // (2) Ephemeral R (e_r): 1 RistrettoPoint
+        // (3) Ciphertext (enc_tag): 2 RistrettoPoints
+        // (4) Proof (pi): 5 Ristretto Points, 6 Scalars
+        let frank_cost =
+            mem::size_of::<RistrettoPoint>() * (1 + 1 + 2 + 5) + mem::size_of::<Scalar>() * 6;
+        println!("Franking Communication Cost: {} (bytes)", frank_cost);
+    }
 
     // Receiver Verifies Franking Data for Message
     println!("===> Receiver Verifying Franking Data for Message");
@@ -172,6 +230,15 @@ pub fn test_elgamal(msg_size: usize) {
         "Moderator successfully verified franking data for message and tag.",
         "Moderator rejected franking data for message and tag."
     );
+
+    if print_costs {
+        // Communication Cost of Moderation (Inputs to Moderate)
+        // (1) Ciphertext (enc_tag): 2 RistrettoPoints
+        // (2) Message Timestamp (t_msg): 1 u64
+        let mod_cost = mem::size_of::<RistrettoPoint>() * 2 + mem::size_of::<u64>();
+        println!("Moderation Communication Cost: {} (bytes)", mod_cost);
+    }
+
     println!();
     println!(
         "======================== Completed Testing ElGamal Scheme with Message of Size {} ====================",

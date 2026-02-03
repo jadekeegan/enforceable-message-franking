@@ -1,4 +1,4 @@
-use crate::toolbox::lib_common::FrankingKey;
+use crate::toolbox::lib_common::{ClientId, FrankingKey};
 
 use rand::rngs::OsRng;
 
@@ -33,7 +33,7 @@ pub fn keygen() -> FrankingKey {
 ///
 /// # Returns
 /// * `[u8; 32]` - SHA-256 hash of the input data as a 32-byte array
-pub fn hash_context(m: &[u8], id: &[u8; 32], t_msg: u64) -> Scalar {
+pub fn hash_context(m: &[u8], id: &ClientId, t_msg: u64) -> Scalar {
     let mut hasher = Sha256::new();
 
     hasher.update(id);
@@ -56,7 +56,7 @@ pub fn hash_context(m: &[u8], id: &[u8; 32], t_msg: u64) -> Scalar {
 ///
 /// # Returns
 /// * `RistrettoPoint` - MAC Tag t
-pub fn tag(k_f: &FrankingKey, m: &[u8], id: &[u8; 32], t_msg: u64) -> RistrettoPoint {
+pub fn tag(k_f: &FrankingKey, m: &[u8], id: &ClientId, t_msg: u64) -> RistrettoPoint {
     // Unpack franking key
     let (x0, x1) = k_f;
 
@@ -84,7 +84,7 @@ pub fn tag(k_f: &FrankingKey, m: &[u8], id: &[u8; 32], t_msg: u64) -> RistrettoP
 pub fn verify(
     k_f: &FrankingKey,
     m: &[u8],
-    id: &[u8; 32],
+    id: &ClientId,
     t_msg: u64,
     tag: &RistrettoPoint,
 ) -> bool {
@@ -100,7 +100,7 @@ pub fn verify(
 mod tests {
     use super::*;
 
-    fn test_params() -> (FrankingKey, [u8; 32], u64, &'static [u8]) {
+    fn test_params() -> (FrankingKey, ClientId, u64, &'static [u8]) {
         let k_f = keygen();
         let id = [0u8; 32];
         let t_msg = 1_000_000u64;
