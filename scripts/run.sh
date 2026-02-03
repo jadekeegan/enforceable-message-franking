@@ -6,10 +6,10 @@ echo "\n\nBuilding All Packages!\n\n"
 cargo build
 
 echo "\n\nRunning Benchmarks for Basic Scheme!\n\n"
-cargo bench -- "basic/frank" "basic/verify" "basic/moderate"
+cargo bench --bench basic_frank --bench basic_verify --bench basic_moderate
 
 echo "\n\nRunning Benchmarks for ElGamal Scheme!\n\n"
-cargo bench -- "elgamal/frank" "elgamal/verify" "elgamal/moderate"
+cargo bench --bench elgamal_frank --bench elgamal_verify --bench elgamal_moderate
 
 echo "\n\nGenerating Benchmark Tables!\n\n"
 python3 scripts/generate_table.py --scheme all

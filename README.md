@@ -27,7 +27,7 @@ cargo bench -- frank
 cargo bench --bench basic_verify --bench elgamal_verify -- "size 100"
 
 # Run benchmarks for the core functions of the basic scheme.
-cargo bench -- "basic/frank" "basic/verify" "basic/moderate"
+cargo bench --bench basic_frank --bench basic_verify --bench basic_moderate
 
 # Run benchmarks for the ZK proofs of the basic scheme.
 cargo bench -- "basic/zk"

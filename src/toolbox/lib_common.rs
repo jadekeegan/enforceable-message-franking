@@ -182,7 +182,7 @@ pub fn session_init(
 ) -> bool {
     // Verify FrankingKey and PublicKey
     let computed_k_pub = compute_public_key(k_f);
-    let is_k_pub_valid = &ctx.k_pub == &computed_k_pub;
+    let is_k_pub_valid = ctx.k_pub == computed_k_pub;
 
     // Serialize message registration data and verify signature
     let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(ctx);

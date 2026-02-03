@@ -213,7 +213,7 @@ impl Client {
         let (enc_tag, r_enc) = elgamal::encrypt(&pk_m.pk_enc, &tag);
 
         // Compute proof pi
-        let pi = zk_mac_dlog_prove(&r, k_f, &r_enc, &pk_m.pk_enc, &enc_tag, m, t_msg, &ctx);
+        let pi = zk_mac_dlog_prove(&r, k_f, &r_enc, &pk_m.pk_enc, &enc_tag, m, t_msg, ctx);
 
         // Return Franking Data
         ElGamalFrankingData {
