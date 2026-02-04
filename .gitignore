@@ -25,3 +25,4 @@ __pycache__/
 *.so
 .Python
 scripts/*_benchmark_plot.png
+scripts/*_benchmark.csv
