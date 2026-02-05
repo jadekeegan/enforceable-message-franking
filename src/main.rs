@@ -72,11 +72,12 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
     if print_costs {
         // RegisterUser Communication Cost (Moderator to Client)
         // Moderator RegisterUser ---> Sender SessionInit
-        // (1) Franking Key (k_f): 1 CompressedRistretto
-        // (2) Franking Public Key (k_pub): 1 CompressedRistretto
+        // (1) Franking Key (k_f): 2 Scalars
+        // (2) Franking Public Key (k_pub): 2 CompressedRistrettos
         // (3) Signature (sig): 1 Signature
-        let register_user_cost =
-            mem::size_of::<CompressedRistretto>() * (1 + 1) + mem::size_of::<Signature>();
+        let register_user_cost = mem::size_of::<Scalar>() * 2
+            + mem::size_of::<CompressedRistretto>() * 2
+            + mem::size_of::<Signature>();
         println!(
             "Register User Communication Cost: {} (bytes)",
             register_user_cost
@@ -95,14 +96,14 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
     if print_costs {
         // SessionInit Communication Cost (Sender to Receiver)
         // (1) Signature (sig): 1 Signature
-        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey
+        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey (2 CompressedRistrettos)
         let session_init_cost = mem::size_of::<Signature>()
             + mem::size_of::<u64>()
             + mem::size_of::<ClientId>()
-            + mem::size_of::<FrankingPublicKey>();
+            + mem::size_of::<CompressedRistretto>() * 2;
         println!(
             "Session Initialization Communication Cost: {} (bytes)",
-            session_init_cost
+            session_init_cost,
         );
     }
 
@@ -206,6 +207,21 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
     let (moderator, sender, receiver, k_f, ctx, sig) =
         test_elgamal_init_full_session_data(t_expiry);
 
+    if print_costs {
+        // RegisterUser Communication Cost (Moderator to Client)
+        // Moderator RegisterUser ---> Sender SessionInit
+        // (1) Franking Key (k_f): 2 Scalars
+        // (2) Franking Public Key (k_pub): 2 CompressedRistrettos
+        // (3) Signature (sig): 1 Signature
+        let register_user_cost = mem::size_of::<Scalar>() * 2
+            + mem::size_of::<CompressedRistretto>() * 2
+            + mem::size_of::<Signature>();
+        println!(
+            "Register User Communication Cost: {} (bytes)",
+            register_user_cost
+        );
+    }
+
     // Sender Initializes Session
     println!("===> Sender Initializing Session");
     let session_init_success = sender.session_init(&moderator.pk, &k_f, &ctx, &sig);
@@ -214,6 +230,20 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
         "Sender session initialization successful.",
         "Sender session initialization failed."
     );
+
+    if print_costs {
+        // SessionInit Communication Cost (Sender to Receiver)
+        // (1) Signature (sig): 1 Signature
+        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey (2 CompressedRistrettos)
+        let session_init_cost = mem::size_of::<Signature>()
+            + mem::size_of::<u64>()
+            + mem::size_of::<ClientId>()
+            + mem::size_of::<CompressedRistretto>() * 2;
+        println!(
+            "Session Initialization Communication Cost: {} (bytes)",
+            session_init_cost,
+        );
+    }
 
     // Receiver Verifies and Accepts Sender Session
     println!("===> Receiver Accepting Sender Session");
@@ -226,12 +256,10 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
 
     if print_costs {
         // Session Storage Cost
-        // (1) Franking Key (k_f): 1 Scalar
-        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey
-        let session_storage_cost = mem::size_of::<Scalar>()
-            + mem::size_of::<u64>()
+        // (1) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey (2 CompressedRistrettos)
+        let session_storage_cost = mem::size_of::<u64>()
             + mem::size_of::<ClientId>()
-            + mem::size_of::<FrankingPublicKey>();
+            + mem::size_of::<CompressedRistretto>() * 2;
         println!("Session Storage Overhead: {} (bytes)", session_storage_cost);
     }
 
@@ -260,6 +288,13 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
         .verify(&moderator.pk, &fd, m.as_bytes(), t_msg, &ctx)
         .expect("Franking data verification failed.");
 
+    if print_costs {
+        // Communication Cost of Verification (Receiver to Moderator)
+        // (1) Ciphertext (enc_tag): 2 CompressedRistretto
+        let mod_cost = mem::size_of::<CompressedRistretto>() * 2;
+        println!("Moderation Communication Cost: {} (bytes)", mod_cost);
+    }
+
     // Moderator Verifies Franking Data for Message for Moderation
     println!("===> Moderator Verifying Franking Data for Message");
     let mod_verify_success = moderator.moderate(&k_f, m.as_bytes(), t_msg, &ctx, &enc_tag);
@@ -270,11 +305,13 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
     );
 
     if print_costs {
-        // Communication Cost of Moderation (Inputs to Moderate)
-        // (1) Ciphertext (enc_tag): 2 CompressedRistretto
-        // (2) Message Timestamp (t_msg): 1 u64
-        let mod_cost = mem::size_of::<CompressedRistretto>() * 2 + mem::size_of::<u64>();
-        println!("Moderation Communication Cost: {} (bytes)", mod_cost);
+        // Storage Cost of Moderation (Moderator)
+        // (1) id: 1 ClientID
+        // (2) Franking Key (k_f): 2 Scalars
+        // (3) Expiration Timestamp (t_expiry): 1 u64
+        let mod_storage_cost =
+            mem::size_of::<ClientId>() + mem::size_of::<Scalar>() * 2 + mem::size_of::<u64>();
+        println!("Moderation Storage Cost: {} (bytes)", mod_storage_cost);
     }
 
     println!();
