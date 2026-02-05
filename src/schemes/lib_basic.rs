@@ -1,23 +1,19 @@
-use std::io::Error;
-
 use crate::toolbox::lib_basic_zkp::*;
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_ggm as mac;
-
-// Ristretto
+use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
-
 use ed25519_dalek::Signature;
-// Signature
 use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
+use std::io::Error;
 
 // Structs
 pub struct BasicFrankingData {
-    pub r_point: RistrettoPoint, // Ristretto Point R
-    pub e_r: RistrettoPoint,     // Ephemeral Ristretto Point E_r
-    pub tag: RistrettoPoint,     // MAC Tag t
-    pub pi: MacOrDlogZKProof,    // ZK Proof of Knowledge of MAC Tag
+    pub r_point: CompressedRistretto, // Ristretto Point R
+    pub e_r: CompressedRistretto,     // Ephemeral Ristretto Point E_r
+    pub tag: CompressedRistretto,     // MAC Tag t
+    pub pi: MacOrDlogZKProof,         // ZK Proof of Knowledge of MAC Tag
 }
 
 // Helper Functions
@@ -93,7 +89,7 @@ impl Moderator {
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
-        tag: &RistrettoPoint,
+        tag: &CompressedRistretto,
     ) -> bool {
         let is_time_valid = t_msg < ctx.t_expiry;
         let is_tag_valid = mac::verify(k_f, m, &ctx.id, t_msg, tag);
@@ -187,11 +183,14 @@ impl Client {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
+        // Decompress CompressedRistretto for computation
+        let pk_r = pk_r.decompress().unwrap();
+
         // Compute R (pk_r)^alpha
-        let r = alpha * pk_r;
+        let r = (alpha * pk_r).compress();
 
         // Compute E_r = g^alpha
-        let e_r = RistrettoPoint::mul_base(&alpha);
+        let e_r = RistrettoPoint::mul_base(&alpha).compress();
 
         // Compute MAC Tag t
         let tag = mac::tag(k_f, m, &ctx.id, t_msg);
@@ -226,7 +225,7 @@ impl Client {
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
-    ) -> Result<RistrettoPoint, Error> {
+    ) -> Result<CompressedRistretto, Error> {
         let BasicFrankingData {
             r_point,
             e_r,
@@ -234,8 +233,11 @@ impl Client {
             pi,
         } = ad;
 
-        let recomputed_r = self.sk * e_r;
-        let is_r_valid = &recomputed_r == r_point;
+        // Decompress points for computation
+        let decompressed_e_r = e_r.decompress().unwrap();
+
+        let recomputed_r = (self.sk * decompressed_e_r).compress();
+        let is_r_valid = recomputed_r == *r_point;
         let is_t_valid = t_msg < ctx.t_expiry;
         let is_pi_valid = zk_mac_dlog_verify(r_point, tag, m, t_msg, ctx, pi);
 
@@ -286,7 +288,7 @@ mod test {
         let (x0, x1) = k_f;
         let (g0, g1) = k_pub;
 
-        assert!(RistrettoPoint::mul_base(&x0) == g0);
-        assert!(RistrettoPoint::mul_base(&x1) == g1);
+        assert!(RistrettoPoint::mul_base(&x0).compress() == g0);
+        assert!(RistrettoPoint::mul_base(&x1).compress() == g1);
     }
 }

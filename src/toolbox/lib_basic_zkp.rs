@@ -1,15 +1,15 @@
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_ggm::hash_context;
-use curve25519_dalek::{RistrettoPoint, Scalar};
+use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
 use rand::rngs::OsRng;
 
 // ZK Proof Structure
 pub struct MacOrDlogZKProof {
     // Commitments
-    pub t0: RistrettoPoint,     // g^r0
-    pub t1: RistrettoPoint,     // g^r1
-    pub t_mac: RistrettoPoint,  // g^(r0 + r1*h)
-    pub t_dlog: RistrettoPoint, // Dlog commitment
+    pub t0: CompressedRistretto,     // g^r0
+    pub t1: CompressedRistretto,     // g^r1
+    pub t_mac: CompressedRistretto,  // g^(r0 + r1*h)
+    pub t_dlog: CompressedRistretto, // Dlog commitment
 
     // Challenges (split))
     pub c_frank: Scalar, // Franking key challenge
@@ -35,9 +35,9 @@ pub struct MacOrDlogZKProof {
 /// # Returns
 /// * `MacOrDlogZKProof` - ZK Proof of Knowledge of MAC Tag
 pub fn zk_mac_dlog_prove(
-    r_point: &RistrettoPoint,
+    r_point: &CompressedRistretto,
     k_f: &FrankingKey,
-    tag: &RistrettoPoint,
+    tag: &CompressedRistretto,
     m: &[u8],
     t_msg: u64,
     ctx: &SessionContext,
@@ -57,16 +57,16 @@ pub fn zk_mac_dlog_prove(
     let r1 = Scalar::random(&mut rng);
 
     // Compute commitment for public key
-    let t0 = RistrettoPoint::mul_base(&r0); // g^r0
-    let t1 = RistrettoPoint::mul_base(&r1); // g^r1
+    let t0 = RistrettoPoint::mul_base(&r0).compress(); // g^r0
+    let t1 = RistrettoPoint::mul_base(&r1).compress(); // g^r1
 
     // Compute commitment for MAC tag
-    let t_mac = RistrettoPoint::mul_base(&(r0 + r1 * h_m)); // g^(r0 + r1*h)
-
+    let t_mac = RistrettoPoint::mul_base(&(r0 + r1 * h_m)).compress(); // g^(r0 + r1*h)
     // Simulate DLog proof
     let c_dlog = Scalar::random(&mut rng);
     let z_dlog = Scalar::random(&mut rng);
-    let t_dlog = RistrettoPoint::mul_base(&z_dlog) - c_dlog * r_point; // g^z_dlog * R^(-c_dlog)
+    let t_dlog =
+        (RistrettoPoint::mul_base(&z_dlog) - c_dlog * r_point.decompress().unwrap()).compress(); // g^z_dlog * R^(-c_dlog)
 
     // Compute fiat shamir challenge c = H(g0, g1, R, t0, t1, t_mac, t_dlog)
     let c = hash_challenge(
@@ -110,8 +110,8 @@ pub fn zk_mac_dlog_prove(
 /// # Returns
 /// * `bool` - indicating validity (true) or invalidity (false)
 pub fn zk_mac_dlog_verify(
-    r_point: &RistrettoPoint,
-    tag: &RistrettoPoint,
+    r_point: &CompressedRistretto,
+    tag: &CompressedRistretto,
     m: &[u8],
     t_msg: u64,
     ctx: &SessionContext,
@@ -147,22 +147,30 @@ pub fn zk_mac_dlog_verify(
     let z_mac = RistrettoPoint::mul_base(&(z0 + z1 * h_m));
 
     // Verify commitments
-    let v0 = RistrettoPoint::mul_base(z0) == t0 + c_frank * g0;
-    let v1 = RistrettoPoint::mul_base(z1) == t1 + c_frank * g1;
-    let v_mac = z_mac == t_mac + c_frank * tag;
-    let v_dlog = RistrettoPoint::mul_base(z_dlog) == t_dlog + c_dlog * r_point;
+    let v0 = RistrettoPoint::mul_base(z0)
+        == t0.decompress().unwrap() + c_frank * g0.decompress().unwrap();
+    let v1 = RistrettoPoint::mul_base(z1)
+        == t1.decompress().unwrap() + c_frank * g1.decompress().unwrap();
+    let v_mac = z_mac == t_mac.decompress().unwrap() + c_frank * tag.decompress().unwrap();
+    let v_dlog = RistrettoPoint::mul_base(z_dlog)
+        == t_dlog.decompress().unwrap() + c_dlog * r_point.decompress().unwrap();
 
     v_c && v0 && v1 && v_mac && v_dlog
 }
 
-pub fn hash_challenge(points: [&RistrettoPoint; 8], m: &[u8], id: &ClientId, t_msg: u64) -> Scalar {
+pub fn hash_challenge(
+    points: [&CompressedRistretto; 8],
+    m: &[u8],
+    id: &ClientId,
+    t_msg: u64,
+) -> Scalar {
     use sha2::{Digest, Sha256};
 
     let mut hasher = Sha256::new();
 
     // Hash all points
     for point in points {
-        hasher.update(point.compress().as_bytes());
+        hasher.update(point.as_bytes());
     }
 
     // Hash context
@@ -187,17 +195,17 @@ mod test {
 
     fn test_params() -> (
         FrankingKey,
-        RistrettoPoint,
+        CompressedRistretto,
         &'static [u8],
         u64,
         SessionContext,
     ) {
         let k_f = (Scalar::from(1u64), Scalar::from(2u64));
         let k_pub = (
-            RistrettoPoint::mul_base(&k_f.0),
-            RistrettoPoint::mul_base(&k_f.1),
+            RistrettoPoint::mul_base(&k_f.0).compress(),
+            RistrettoPoint::mul_base(&k_f.1).compress(),
         );
-        let r_point = RistrettoPoint::default();
+        let r_point = CompressedRistretto::default();
         let m = b"Test message";
         let t_msg = 0u64;
         let ctx = SessionContext {
@@ -249,7 +257,7 @@ mod test {
         let tag = tag(&k_f, m, &ctx.id, t_msg);
 
         // Compute proof on k_f and invalid tag
-        let invalid_tag = RistrettoPoint::default();
+        let invalid_tag = CompressedRistretto::default();
         let pi = zk_mac_dlog_prove(&r_point, &k_f, &invalid_tag, m, t_msg, &ctx);
 
         let is_valid = zk_mac_dlog_verify(&r_point, &tag, m, t_msg, &ctx, &pi);

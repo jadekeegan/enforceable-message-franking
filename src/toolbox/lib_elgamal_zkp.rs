@@ -1,18 +1,18 @@
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_elgamal_enc::*;
 use crate::toolbox::lib_mac_ggm::hash_context;
+use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use rand::rngs::OsRng;
 
 // ZK Proof Structure
 pub struct MacOrDlogZKProof {
     // Commitments
-    pub t0: RistrettoPoint,     // g^r0
-    pub t1: RistrettoPoint,     // g^r1
-    pub t_c1: RistrettoPoint,   // g^r2
-    pub t_c2: RistrettoPoint,   // pk_enc^r2 * g^(r0 + r1*h)
-    pub t_dlog: RistrettoPoint, // Dlog commitment
-
+    pub t0: CompressedRistretto,     // g^r0
+    pub t1: CompressedRistretto,     // g^r1
+    pub t_c1: CompressedRistretto,   // g^r2
+    pub t_c2: CompressedRistretto,   // pk_enc^r2 * g^(r0 + r1*h)
+    pub t_dlog: CompressedRistretto, // Dlog commitment
     // Challenges (split))
     pub c_frank: Scalar, // Franking key challenge
     pub c_dlog: Scalar,  // Dlog challenge
@@ -37,7 +37,7 @@ pub struct MacOrDlogZKProof {
 /// * `t_msg` - Message Timestamp
 /// * `ctx` - Session Context
 pub fn zk_mac_dlog_prove(
-    r_point: &RistrettoPoint,
+    r_point: &CompressedRistretto,
     k_f: &FrankingKey,
     r_enc: &Scalar,
     pk_enc: &ElGamalPublicKey,
@@ -62,18 +62,19 @@ pub fn zk_mac_dlog_prove(
     let r2 = Scalar::random(&mut rng);
 
     // Compute commitment for public key
-    let t0 = RistrettoPoint::mul_base(&r0); // g^r0
-    let t1 = RistrettoPoint::mul_base(&r1); // g^r1
+    let t0 = RistrettoPoint::mul_base(&r0).compress(); // g^r0
+    let t1 = RistrettoPoint::mul_base(&r1).compress(); // g^r1
 
     // Compute commitment for ElGamal encryption of MAC tag
-    let t_mac = RistrettoPoint::mul_base(&(r0 + r1 * h_m)); // g^(r0 + r1*h)
-    let t_c1 = RistrettoPoint::mul_base(&r2); // g^r2
-    let t_c2 = pk_enc * r2 + t_mac; // pk_enc^r2 * g^(r0 + r1*h)
+    let t_c1 = RistrettoPoint::mul_base(&r2).compress(); // g^r2
+    let t_c2 =
+        (pk_enc.decompress().unwrap() * r2 + RistrettoPoint::mul_base(&(r0 + r1 * h_m))).compress(); // pk_enc^r2 * g^(r0 + r1*h)
 
     // Simulate DLog proof
     let c_dlog = Scalar::random(&mut rng);
     let z_dlog = Scalar::random(&mut rng);
-    let t_dlog = RistrettoPoint::mul_base(&z_dlog) - c_dlog * r_point; // g^z_dlog * R^(-c_dlog)
+    let t_dlog =
+        (RistrettoPoint::mul_base(&z_dlog) - c_dlog * r_point.decompress().unwrap()).compress(); // g^z_dlog * R^(-c_dlog)
 
     // Compute fiat shamir challenge c = H(g0, g1, R, T (c1, c2), t0, t1, t_c1, t_c2, t_dlog)
     let c = hash_challenge(
@@ -123,7 +124,7 @@ pub fn zk_mac_dlog_prove(
 /// # Returns
 /// * `bool` - indicating validity (true) or invalidity (false)
 pub fn zk_mac_dlog_verify(
-    r_point: &RistrettoPoint,
+    r_point: &CompressedRistretto,
     pk_enc: &ElGamalPublicKey,
     enc_tag: &ElGamalCiphertext,
     m: &[u8],
@@ -165,17 +166,21 @@ pub fn zk_mac_dlog_verify(
     let z_mac = RistrettoPoint::mul_base(&(z0 + z1 * h_m));
 
     // Verify commitments
-    let v0 = RistrettoPoint::mul_base(z0) == t0 + c_frank * g0; // g^z0 == t0 * g0^c_frank
-    let v1 = RistrettoPoint::mul_base(z1) == t1 + c_frank * g1; // g^z1 == t1 * g1^c_frank
-    let v_c1 = RistrettoPoint::mul_base(z_enc) == t_c1 + c_frank * enc_tag.0; // g^z_enc == t_c1 * enc_tag.0^c_frank
-    let v_c2 = z_enc * pk_enc + z_mac == t_c2 + c_frank * enc_tag.1; // pk_enc^z_enc * g^(z0 + z1*h) == t_c2 * enc_tag.1^c_frank
-    let v_dlog = RistrettoPoint::mul_base(z_dlog) == t_dlog + c_dlog * r_point; // g^z_dlog == t_dlog * R^c_dlog
-
+    let v0 = RistrettoPoint::mul_base(z0)
+        == t0.decompress().unwrap() + c_frank * g0.decompress().unwrap(); // g^z0 == t0 * g0^c_frank
+    let v1 = RistrettoPoint::mul_base(z1)
+        == t1.decompress().unwrap() + c_frank * g1.decompress().unwrap(); // g^z1 == t1 * g1^c_frank
+    let v_c1 = RistrettoPoint::mul_base(z_enc)
+        == t_c1.decompress().unwrap() + c_frank * enc_tag.0.decompress().unwrap(); // g^z_enc == t_c1 * enc_tag.0^c_frank
+    let v_c2 = z_enc * pk_enc.decompress().unwrap() + z_mac
+        == t_c2.decompress().unwrap() + c_frank * enc_tag.1.decompress().unwrap(); // pk_enc^z_enc * g^(z0 + z1*h) == t_c2 * enc_tag.1^c_frank
+    let v_dlog = RistrettoPoint::mul_base(z_dlog)
+        == t_dlog.decompress().unwrap() + c_dlog * r_point.decompress().unwrap(); // g^z_dlog == t_dlog * R^c_dlog
     v_c && v0 && v1 && v_c1 && v_c2 && v_dlog
 }
 
 pub fn hash_challenge(
-    points: [&RistrettoPoint; 10],
+    points: [&CompressedRistretto; 10],
     m: &[u8],
     id: &ClientId,
     t_msg: u64,
@@ -186,7 +191,7 @@ pub fn hash_challenge(
 
     // Hash all points
     for point in points {
-        hasher.update(point.compress().as_bytes());
+        hasher.update(point.as_bytes());
     }
 
     // Hash context
@@ -213,18 +218,18 @@ mod test {
     fn test_params() -> (
         FrankingKey,
         ElGamalPublicKey,
-        RistrettoPoint,
+        CompressedRistretto,
         &'static [u8],
         u64,
         SessionContext,
     ) {
         let k_f = (Scalar::from(1u64), Scalar::from(2u64));
         let k_pub = (
-            RistrettoPoint::mul_base(&k_f.0),
-            RistrettoPoint::mul_base(&k_f.1),
+            RistrettoPoint::mul_base(&k_f.0).compress(),
+            RistrettoPoint::mul_base(&k_f.1).compress(),
         );
-        let pk_enc = RistrettoPoint::mul_base(&Scalar::from(3u64));
-        let r_point = RistrettoPoint::mul_base(&Scalar::from(5u64));
+        let pk_enc = RistrettoPoint::mul_base(&Scalar::from(3u64)).compress();
+        let r_point = RistrettoPoint::mul_base(&Scalar::from(5u64)).compress();
         let m = b"Test message";
         let t_msg = 0u64;
         let ctx = SessionContext {
@@ -236,6 +241,23 @@ mod test {
         (k_f, pk_enc, r_point, m, t_msg, ctx)
     }
 
+    fn test_enc_tag(
+        k_f: &FrankingKey,
+        pk_enc: &ElGamalPublicKey,
+        m: &[u8],
+        t_msg: u64,
+        ctx: &SessionContext,
+    ) -> (Scalar, (CompressedRistretto, CompressedRistretto)) {
+        let tag = tag(k_f, m, &ctx.id, t_msg);
+        let r_enc = Scalar::from(7u64);
+        let enc_tag = (
+            RistrettoPoint::mul_base(&r_enc).compress(),
+            (r_enc * pk_enc.decompress().unwrap() + tag.decompress().unwrap()).compress(),
+        );
+
+        (r_enc, enc_tag)
+    }
+
     #[test]
     fn test_valid_proof_verifies() {
         // Dummy values
@@ -244,7 +266,10 @@ mod test {
         // Compute mac tag and encrypt it
         let tag = tag(&k_f, m, &ctx.id, t_msg);
         let r_enc = Scalar::from(7u64);
-        let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
+        let enc_tag = (
+            RistrettoPoint::mul_base(&r_enc).compress(),
+            (r_enc * pk_enc.decompress().unwrap() + tag.decompress().unwrap()).compress(),
+        );
 
         // Compute proof on k_f and tag
         let pi = zk_mac_dlog_prove(&r_point, &k_f, &r_enc, &pk_enc, &enc_tag, m, t_msg, &ctx);
@@ -259,9 +284,7 @@ mod test {
         let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
-        let r_enc = Scalar::from(7u64);
-        let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
+        let (r_enc, enc_tag) = test_enc_tag(&k_f, &pk_enc, m, t_msg, &ctx);
 
         // Compute proof on invalid k_f and tag
         let invalid_k_f = (k_f.0 + Scalar::from(1u64), k_f.1);
@@ -286,12 +309,13 @@ mod test {
         let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
-        let r_enc = Scalar::from(7u64);
-        let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
+        let (r_enc, enc_tag) = test_enc_tag(&k_f, &pk_enc, m, t_msg, &ctx);
 
         // Compute proof on k_f and invalid tag
-        let invalid_enc_tag = (RistrettoPoint::default(), RistrettoPoint::default());
+        let invalid_enc_tag = (
+            RistrettoPoint::default().compress(),
+            RistrettoPoint::default().compress(),
+        );
         let pi = zk_mac_dlog_prove(
             &r_point,
             &k_f,
@@ -314,9 +338,7 @@ mod test {
         let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
-        let r_enc = Scalar::from(7u64);
-        let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
+        let (r_enc, enc_tag) = test_enc_tag(&k_f, &pk_enc, m, t_msg, &ctx);
 
         // Compute proof on k_f and invalid message
         let invalid_m = b"Invalid message";
@@ -334,9 +356,7 @@ mod test {
         let (k_f, pk_enc, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag and encrypt it
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
-        let r_enc = Scalar::from(7u64);
-        let enc_tag = (RistrettoPoint::mul_base(&r_enc), r_enc * pk_enc + tag);
+        let (r_enc, enc_tag) = test_enc_tag(&k_f, &pk_enc, m, t_msg, &ctx);
 
         // Compute proof on k_f and tag with invalid context
         let invalid_ctx = SessionContext {

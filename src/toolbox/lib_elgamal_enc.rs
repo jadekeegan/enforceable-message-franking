@@ -1,10 +1,10 @@
-use curve25519_dalek::{RistrettoPoint, Scalar};
+use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
 use rand::rngs::OsRng;
 
 // Type Definitions
-pub type ElGamalCiphertext = (RistrettoPoint, RistrettoPoint);
+pub type ElGamalCiphertext = (CompressedRistretto, CompressedRistretto);
 pub type ElGamalSecretKey = Scalar;
-pub type ElGamalPublicKey = RistrettoPoint;
+pub type ElGamalPublicKey = CompressedRistretto;
 
 // Elgamal Keygen
 /// Generate an ElGamal key pair.
@@ -13,7 +13,7 @@ pub type ElGamalPublicKey = RistrettoPoint;
 /// * `(sk, pk)` - Secret key and public key
 pub fn keygen() -> (ElGamalSecretKey, ElGamalPublicKey) {
     let sk = Scalar::random(&mut OsRng);
-    let pk = RistrettoPoint::mul_base(&sk);
+    let pk = RistrettoPoint::mul_base(&sk).compress();
     (sk, pk)
 }
 
@@ -27,15 +27,15 @@ pub fn keygen() -> (ElGamalSecretKey, ElGamalPublicKey) {
 /// # Returns
 /// * `(c1, c2)` - ElGamal ciphertext
 /// * `r` - Random scalar used in encryption
-pub fn encrypt(pk: &ElGamalPublicKey, point: &RistrettoPoint) -> (ElGamalCiphertext, Scalar) {
+pub fn encrypt(pk: &ElGamalPublicKey, point: &CompressedRistretto) -> (ElGamalCiphertext, Scalar) {
     let r = Scalar::random(&mut OsRng);
 
     // c1 = g^r
     let c1 = RistrettoPoint::mul_base(&r);
 
     // c2 = pk^r + point
-    let c2 = r * pk + point;
-    ((c1, c2), r)
+    let c2 = r * pk.decompress().unwrap() + point.decompress().unwrap();
+    ((c1.compress(), c2.compress()), r)
 }
 
 // Elgamal Decryption
@@ -47,6 +47,7 @@ pub fn encrypt(pk: &ElGamalPublicKey, point: &RistrettoPoint) -> (ElGamalCiphert
 ///
 /// # Returns
 /// * Decrypted RistrettoPoint
-pub fn decrypt(sk: &ElGamalSecretKey, ct: &ElGamalCiphertext) -> RistrettoPoint {
-    ct.1 - sk * ct.0
+pub fn decrypt(sk: &ElGamalSecretKey, ct: &ElGamalCiphertext) -> CompressedRistretto {
+    let tag = ct.1.decompress().unwrap() - sk * ct.0.decompress().unwrap();
+    tag.compress()
 }

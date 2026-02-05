@@ -1,6 +1,7 @@
 use std::mem;
 
-use curve25519_dalek::{RistrettoPoint, Scalar};
+use curve25519_dalek::Scalar;
+use curve25519_dalek::ristretto::CompressedRistretto;
 use federated_franking_impl::schemes::bench_helpers::*;
 use federated_franking_impl::toolbox::lib_common::*;
 
@@ -106,12 +107,12 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
 
     if print_costs {
         // Communication Cost of Franking Data
-        // (1) R (r_point): 1 RistrettoPoint
-        // (2) Ephemeral R (e_r): 1 RistrettoPoint
-        // (3) Tag (tag): 1 RistrettoPoint
-        // (4) Proof (pi): 4 Ristretto Points, 5 Scalars
+        // (1) R (r_point): 1 CompressedRistretto
+        // (2) Ephemeral R (e_r): 1 CompressedRistretto
+        // (3) Tag (tag): 1 CompressedRistretto
+        // (4) Proof (pi): 4 CompressedRistretto, 5 Scalars
         let frank_cost =
-            mem::size_of::<RistrettoPoint>() * (1 + 1 + 1 + 4) + mem::size_of::<Scalar>() * 5;
+            mem::size_of::<CompressedRistretto>() * (1 + 1 + 1 + 4) + mem::size_of::<Scalar>() * 5;
         println!("Franking Communication Cost: {} (bytes)", frank_cost);
     }
 
@@ -132,9 +133,9 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
 
     if print_costs {
         // Communication Cost of Moderation (Inputs to Moderate)
-        // (1) Tag (tag): 1 RistrettoPoint
+        // (1) Tag (tag): 1 CompressedRistretto
         // (2) Message Timestamp (t_msg): 1 u64
-        let mod_cost = mem::size_of::<RistrettoPoint>() + mem::size_of::<u64>();
+        let mod_cost = mem::size_of::<CompressedRistretto>() + mem::size_of::<u64>();
         println!("Moderation Communication Cost: {} (bytes)", mod_cost);
     }
 
@@ -207,12 +208,12 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
 
     if print_costs {
         // Communication Cost of Franking Data
-        // (1) R (r_point): 1 RistrettoPoint
-        // (2) Ephemeral R (e_r): 1 RistrettoPoint
-        // (3) Ciphertext (enc_tag): 2 RistrettoPoints
-        // (4) Proof (pi): 5 Ristretto Points, 6 Scalars
+        // (1) R (r_point): 1 CompressedRistretto
+        // (2) Ephemeral R (e_r): 1 CompressedRistretto
+        // (3) Ciphertext (enc_tag): 2 CompressedRistretto
+        // (4) Proof (pi): 5 CompressedRistretto, 6 Scalars
         let frank_cost =
-            mem::size_of::<RistrettoPoint>() * (1 + 1 + 2 + 5) + mem::size_of::<Scalar>() * 6;
+            mem::size_of::<CompressedRistretto>() * (1 + 1 + 2 + 5) + mem::size_of::<Scalar>() * 6;
         println!("Franking Communication Cost: {} (bytes)", frank_cost);
     }
 
@@ -233,9 +234,9 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
 
     if print_costs {
         // Communication Cost of Moderation (Inputs to Moderate)
-        // (1) Ciphertext (enc_tag): 2 RistrettoPoints
+        // (1) Ciphertext (enc_tag): 2 CompressedRistretto
         // (2) Message Timestamp (t_msg): 1 u64
-        let mod_cost = mem::size_of::<RistrettoPoint>() * 2 + mem::size_of::<u64>();
+        let mod_cost = mem::size_of::<CompressedRistretto>() * 2 + mem::size_of::<u64>();
         println!("Moderation Communication Cost: {} (bytes)", mod_cost);
     }
 

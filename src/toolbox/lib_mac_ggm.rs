@@ -2,7 +2,7 @@ use crate::toolbox::lib_common::{ClientId, FrankingKey};
 
 use rand::rngs::OsRng;
 
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
 use sha2::{Digest, Sha256};
@@ -56,7 +56,7 @@ pub fn hash_context(m: &[u8], id: &ClientId, t_msg: u64) -> Scalar {
 ///
 /// # Returns
 /// * `RistrettoPoint` - MAC Tag t
-pub fn tag(k_f: &FrankingKey, m: &[u8], id: &ClientId, t_msg: u64) -> RistrettoPoint {
+pub fn tag(k_f: &FrankingKey, m: &[u8], id: &ClientId, t_msg: u64) -> CompressedRistretto {
     // Unpack franking key
     let (x0, x1) = k_f;
 
@@ -66,7 +66,7 @@ pub fn tag(k_f: &FrankingKey, m: &[u8], id: &ClientId, t_msg: u64) -> RistrettoP
     // g^(x0 + x1 * H(m))
     let exp = *x0 + (*x1 * h_m);
 
-    RistrettoPoint::mul_base(&exp)
+    RistrettoPoint::mul_base(&exp).compress()
 }
 
 // Mac Tag Verification
@@ -86,7 +86,7 @@ pub fn verify(
     m: &[u8],
     id: &ClientId,
     t_msg: u64,
-    tag: &RistrettoPoint,
+    tag: &CompressedRistretto,
 ) -> bool {
     // Compute expected tag
     let expected = self::tag(k_f, m, id, t_msg);
@@ -151,7 +151,7 @@ mod tests {
 
         let tag = tag(&k_f, m, &id, t_msg);
         let expected_exp = k_f.0 + (k_f.1 * hash_context(m, &id, t_msg));
-        let expected_tag = RistrettoPoint::mul_base(&expected_exp);
+        let expected_tag = RistrettoPoint::mul_base(&expected_exp).compress();
 
         assert_eq!(tag, expected_tag, "Computed MAC tag is incorrect");
     }
@@ -192,7 +192,7 @@ mod tests {
     fn test_mac_verify_invalidity() {
         let (k_f, id, t_msg, m) = test_params();
 
-        let invalid_tag = RistrettoPoint::default();
+        let invalid_tag = CompressedRistretto::default();
 
         let is_valid = verify(&k_f, m, &id, t_msg, &invalid_tag);
 

@@ -1,15 +1,14 @@
-use rand::rngs::OsRng;
-use std::io::Error;
-
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_elgamal_enc as elgamal;
 use crate::toolbox::lib_elgamal_enc::{ElGamalCiphertext, ElGamalPublicKey, ElGamalSecretKey};
 use crate::toolbox::lib_elgamal_zkp::*;
 use crate::toolbox::lib_mac_ggm as mac;
-
+use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::Signature;
 use ed25519_dalek::{SigningKey, VerifyingKey};
+use rand::rngs::OsRng;
+use std::io::Error;
 
 // Type Definitions
 pub struct ModeratorSecretKey {
@@ -23,10 +22,10 @@ pub struct ModeratorPublicKey {
 }
 
 pub struct ElGamalFrankingData {
-    pub r_point: RistrettoPoint,    // Ristretto Point R
-    pub e_r: RistrettoPoint,        // Ephemeral Ristretto Point E_r
-    pub enc_tag: ElGamalCiphertext, // Encrypted MAC Tag t
-    pub pi: MacOrDlogZKProof,       // ZK Proof of Knowledge of MAC Tag
+    pub r_point: CompressedRistretto, // Ristretto Point R
+    pub e_r: CompressedRistretto,     // Ephemeral Ristretto Point E_r
+    pub enc_tag: ElGamalCiphertext,   // Encrypted MAC Tag t
+    pub pi: MacOrDlogZKProof,         // ZK Proof of Knowledge of MAC Tag
 }
 
 // Helper Functions
@@ -200,11 +199,14 @@ impl Client {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
+        // Decompress recipient public key
+        let pk_r = pk_r.decompress().unwrap();
+
         // Compute R (pk_r)^alpha
-        let r = alpha * pk_r;
+        let r = (alpha * pk_r).compress();
 
         // Compute E_r = g^alpha
-        let e_r = RistrettoPoint::mul_base(&alpha);
+        let e_r = RistrettoPoint::mul_base(&alpha).compress();
 
         // Compute MAC Tag t
         let tag = mac::tag(k_f, m, &ctx.id, t_msg);
@@ -251,8 +253,11 @@ impl Client {
             pi,
         } = ad;
 
-        let recomputed_r = self.sk * e_r;
-        let is_r_valid = &recomputed_r == r_point;
+        // Decompress points for computation
+        let decompressed_e_r = e_r.decompress().unwrap();
+
+        let recomputed_r = (self.sk * decompressed_e_r).compress();
+        let is_r_valid = recomputed_r == *r_point;
         let is_t_valid = t_msg < ctx.t_expiry;
         let is_pi_valid = zk_mac_dlog_verify(r_point, &pk_m.pk_enc, enc_tag, m, t_msg, ctx, pi);
 
@@ -304,7 +309,7 @@ mod test {
         let (x0, x1) = k_f;
         let (g0, g1) = k_pub;
 
-        assert!(RistrettoPoint::mul_base(&x0) == g0);
-        assert!(RistrettoPoint::mul_base(&x1) == g1);
+        assert!(RistrettoPoint::mul_base(&x0).compress() == g0);
+        assert!(RistrettoPoint::mul_base(&x1).compress() == g1);
     }
 }

@@ -4,7 +4,7 @@ use crate::schemes::lib_elgamal::ModeratorPublicKey;
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_elgamal_enc as elgamal_enc;
 use crate::toolbox::lib_mac_ggm as mac_ggm;
-use curve25519_dalek::RistrettoPoint;
+use curve25519_dalek::ristretto::CompressedRistretto;
 use ed25519_dalek::Signature;
 use rand::distributions::{Alphanumeric, DistString};
 
@@ -78,11 +78,11 @@ pub fn test_basic_init_messages_with_tags(
     k_f: &FrankingKey,
     client: &basic::Client,
     t_msg: u64,
-) -> (Vec<String>, Vec<RistrettoPoint>) {
+) -> (Vec<String>, Vec<CompressedRistretto>) {
     let ms = test_init_messages();
 
     // Generate Tags for Each Message
-    let mut tags: Vec<RistrettoPoint> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut tags: Vec<CompressedRistretto> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
         tags.push(mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg));
     }

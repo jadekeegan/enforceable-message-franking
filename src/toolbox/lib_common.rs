@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use curve25519_dalek::{RistrettoPoint, Scalar};
+use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use rand::RngCore;
@@ -19,26 +19,15 @@ pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
 
 // Type Definitions
 pub type FrankingKey = (Scalar, Scalar);
-pub type FrankingPublicKey = (RistrettoPoint, RistrettoPoint);
+pub type FrankingPublicKey = (CompressedRistretto, CompressedRistretto);
 pub type ClientSecretKey = Scalar;
-pub type ClientPublicKey = RistrettoPoint;
+pub type ClientPublicKey = CompressedRistretto;
 pub type ClientId = [u8; 32];
 
 pub struct SessionContext {
     pub id: ClientId,             // User Identifier
     pub k_pub: FrankingPublicKey, // Franking Public Key (g0, g1)
     pub t_expiry: u64,            // Signature Expiry Time
-}
-
-// Compress Ristretto Point
-/// Compresses a given Ristretto Point into its byte representation.
-/// # Arguments
-/// * `point` - Ristretto Point to be compressed
-///
-/// # Returns
-/// * `[u8; 32]` - Compressed byte representation of the Ristretto Point
-pub(crate) fn compress_point(point: &RistrettoPoint) -> [u8; 32] {
-    point.compress().to_bytes()
 }
 
 // Compute Timestamps for expiry and message
@@ -85,7 +74,7 @@ pub fn moderator_sig_keygen() -> (SigningKey, VerifyingKey) {
 /// * `ClientPublicKey` - User Public Key
 pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
     let sk = Scalar::random(&mut OsRng);
-    let pk = RistrettoPoint::mul_base(&sk);
+    let pk = RistrettoPoint::mul_base(&sk).compress();
 
     (sk, pk)
 }
@@ -101,8 +90,8 @@ pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
 pub fn compute_public_key(k_f: &FrankingKey) -> FrankingPublicKey {
     let (x0, x1) = k_f;
 
-    let g0 = RistrettoPoint::mul_base(x0);
-    let g1 = RistrettoPoint::mul_base(x1);
+    let g0 = RistrettoPoint::mul_base(x0).compress();
+    let g1 = RistrettoPoint::mul_base(x1).compress();
 
     (g0, g1)
 }
@@ -226,8 +215,8 @@ pub fn serialize_registration(ctx: &SessionContext) -> [u8; REGISTRATION_SERIALI
     msg[..32].copy_from_slice(&ctx.id);
     // Serialize g0 and g1 and copy into msg
     let (g0, g1) = &ctx.k_pub;
-    msg[32..64].copy_from_slice(&compress_point(g0));
-    msg[64..96].copy_from_slice(&compress_point(g1));
+    msg[32..64].copy_from_slice(g0.as_bytes());
+    msg[64..96].copy_from_slice(g1.as_bytes());
 
     // Serialize t_expiry and copy into msg
     msg[96..104].copy_from_slice(&ctx.t_expiry.to_le_bytes());
@@ -240,9 +229,9 @@ pub fn serialize_registration(ctx: &SessionContext) -> [u8; REGISTRATION_SERIALI
 mod tests {
     use super::*;
 
-    fn test_session_context() -> (RistrettoPoint, RistrettoPoint, SessionContext) {
-        let g0 = RistrettoPoint::default();
-        let g1 = RistrettoPoint::default();
+    fn test_session_context() -> (CompressedRistretto, CompressedRistretto, SessionContext) {
+        let g0 = CompressedRistretto::default();
+        let g1 = CompressedRistretto::default();
 
         let ctx = SessionContext {
             id: [0u8; 32],
@@ -297,11 +286,7 @@ mod tests {
             sk2.to_bytes(),
             "Generated user secret keys are not unique"
         );
-        assert_ne!(
-            compress_point(&pk1),
-            compress_point(&pk2),
-            "Generated user public keys are not unique"
-        );
+        assert_ne!(pk1, pk2, "Generated user public keys are not unique");
     }
 
     #[test]
@@ -314,12 +299,12 @@ mod tests {
 
         assert_eq!(
             g0,
-            RistrettoPoint::mul_base(&x0),
+            RistrettoPoint::mul_base(&x0).compress(),
             "Computed g0 is incorrect"
         );
         assert_eq!(
             g1,
-            RistrettoPoint::mul_base(&x1),
+            RistrettoPoint::mul_base(&x1).compress(),
             "Computed g1 is incorrect"
         );
     }
@@ -366,12 +351,12 @@ mod tests {
         assert_eq!(&serialized[..32], &ctx.id, "Serialized id is incorrect");
         assert_eq!(
             &serialized[32..64],
-            &compress_point(&g0),
+            g0.as_bytes(),
             "Serialized g0 is incorrect"
         );
         assert_eq!(
             &serialized[64..96],
-            &compress_point(&g1),
+            g1.as_bytes(),
             "Serialized g1 is incorrect"
         );
         assert_eq!(

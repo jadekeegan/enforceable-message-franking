@@ -6,7 +6,7 @@ use rand::rngs::OsRng;
 pub fn bench_elgamal_encrypt(c: &mut Criterion) {
     // Setup: Generate keypair and random point
     let (_sk, pk) = elgamal::keygen();
-    let point = RistrettoPoint::random(&mut OsRng);
+    let point = RistrettoPoint::random(&mut OsRng).compress();
 
     // Benchmark
     let mut group = c.benchmark_group("elgamal_enc");
