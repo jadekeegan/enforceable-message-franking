@@ -211,7 +211,6 @@ impl Client {
     /// Verifies that a message has been properly franked.
     ///
     /// # Arguments
-    /// * `pk_R` - Recipient's Public Key (ClientPublicKey)
     /// * `m` - Message to be Verified
     /// * `ad` - Franking Data
     /// * `t_msg` - Message Timestamp
