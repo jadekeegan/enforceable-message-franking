@@ -2,6 +2,7 @@ use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_mac_ggm::hash_context;
 use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
 use rand::rngs::OsRng;
+use sha2::{Digest, Sha512_256};
 
 // ZK Proof Structure
 pub struct MacOrDlogZKProof {
@@ -164,9 +165,8 @@ pub fn hash_challenge(
     id: &ClientId,
     t_msg: u64,
 ) -> Scalar {
-    use sha2::{Digest, Sha256};
-
-    let mut hasher = Sha256::new();
+    // Hash using Sha512_256 for Random Oracle Model
+    let mut hasher = Sha512_256::new();
 
     // Hash all points
     for point in points {
