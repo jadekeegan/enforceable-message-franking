@@ -9,7 +9,7 @@ import csv
 from pathlib import Path
 from typing import Dict
 
-from benchmark_utils import load_benchmark_data
+from benchmark_utils import load_benchmark_data, format_time
 
 
 def write_csv_file(data: Dict[str, Dict[int, float]], output_file: str):
@@ -27,7 +27,7 @@ def write_csv_file(data: Dict[str, Dict[int, float]], output_file: str):
             for size in sizes:
                 col_name = f'{size} bytes'
                 if size in data[func]:
-                    row[col_name] = str(data[func][size])
+                    row[col_name] = format_time(data[func][size])
                 else:
                     row[col_name] = ''
             writer.writerow(row)
