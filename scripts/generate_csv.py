@@ -9,27 +9,28 @@ import csv
 from pathlib import Path
 from typing import Dict
 
-from benchmark_utils import load_benchmark_data, format_time
+from benchmark_utils import load_benchmark_data
 
 
 def write_csv_file(data: Dict[str, Dict[int, float]], output_file: str):
     """Write benchmark data to a CSV file."""
     sizes = sorted({size for func_data in data.values() for size in func_data.keys()})
+    functions = sorted(data.keys())
     
     with open(output_file, 'w', newline='') as csvfile:
-        fieldnames = ['Function'] + [f'{size} bytes' for size in sizes]
+        fieldnames = ['size'] + functions
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         
         writer.writeheader()
         
-        for func in sorted(data.keys()):
-            row = {'Function': func}
-            for size in sizes:
-                col_name = f'{size} bytes'
+        for size in sizes:
+            row = {'size': str(size)}
+            for func in functions:
                 if size in data[func]:
-                    row[col_name] = format_time(data[func][size])
+                    # Convert nanoseconds to microseconds and format without unit
+                    row[func] = f"{data[func][size] / 1000:.2f}"
                 else:
-                    row[col_name] = ''
+                    row[func] = ''
             writer.writerow(row)
     
     print(f"CSV saved to {output_file}")
