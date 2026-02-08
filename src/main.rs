@@ -292,7 +292,7 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
         // Communication Cost of Verification (Receiver to Moderator)
         // (1) Ciphertext (enc_tag): 2 CompressedRistretto
         let mod_cost = mem::size_of::<CompressedRistretto>() * 2;
-        println!("Moderation Communication Cost: {} (bytes)", mod_cost);
+        println!("Verification Communication Cost: {} (bytes)", mod_cost);
     }
 
     // Moderator Verifies Franking Data for Message for Moderation

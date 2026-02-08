@@ -343,7 +343,7 @@ mod tests {
     }
 
     #[test]
-    fn test_serialize_registration_corret_contents() {
+    fn test_serialize_registration_correct_contents() {
         let (g0, g1, ctx) = test_session_context();
 
         let serialized = serialize_registration(&ctx);
