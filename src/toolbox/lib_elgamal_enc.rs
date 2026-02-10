@@ -4,7 +4,7 @@ use rand::rngs::OsRng;
 // Type Definitions
 pub type ElGamalCiphertext = (CompressedRistretto, CompressedRistretto);
 pub type ElGamalSecretKey = Scalar;
-pub type ElGamalPublicKey = CompressedRistretto;
+pub type ElGamalPublicKey = RistrettoPoint;
 
 // Elgamal Keygen
 /// Generate an ElGamal key pair.
@@ -13,7 +13,7 @@ pub type ElGamalPublicKey = CompressedRistretto;
 /// * `(sk, pk)` - Secret key and public key
 pub fn keygen() -> (ElGamalSecretKey, ElGamalPublicKey) {
     let sk = Scalar::random(&mut OsRng);
-    let pk = RistrettoPoint::mul_base(&sk).compress();
+    let pk = RistrettoPoint::mul_base(&sk);
     (sk, pk)
 }
 
@@ -34,7 +34,7 @@ pub fn encrypt(pk: &ElGamalPublicKey, point: &CompressedRistretto) -> (ElGamalCi
     let c1 = RistrettoPoint::mul_base(&r);
 
     // c2 = pk^r + point
-    let c2 = r * pk.decompress().unwrap() + point.decompress().unwrap();
+    let c2 = r * pk + point.decompress().unwrap();
     ((c1.compress(), c2.compress()), r)
 }
 

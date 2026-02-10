@@ -199,9 +199,6 @@ impl Client {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
-        // Decompress recipient public key
-        let pk_r = pk_r.decompress().unwrap();
-
         // Compute R (pk_r)^alpha
         let r = (alpha * pk_r).compress();
 
@@ -309,7 +306,7 @@ mod test {
         let (x0, x1) = k_f;
         let (g0, g1) = k_pub;
 
-        assert!(RistrettoPoint::mul_base(&x0).compress() == g0);
-        assert!(RistrettoPoint::mul_base(&x1).compress() == g1);
+        assert!(RistrettoPoint::mul_base(&x0) == g0);
+        assert!(RistrettoPoint::mul_base(&x1) == g1);
     }
 }

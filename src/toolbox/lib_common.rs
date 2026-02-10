@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
+use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use rand::RngCore;
@@ -19,9 +19,9 @@ pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
 
 // Type Definitions
 pub type FrankingKey = (Scalar, Scalar);
-pub type FrankingPublicKey = (CompressedRistretto, CompressedRistretto);
+pub type FrankingPublicKey = (RistrettoPoint, RistrettoPoint);
 pub type ClientSecretKey = Scalar;
-pub type ClientPublicKey = CompressedRistretto;
+pub type ClientPublicKey = RistrettoPoint;
 pub type ClientId = [u8; 32];
 
 pub struct SessionContext {
@@ -74,7 +74,7 @@ pub fn moderator_sig_keygen() -> (SigningKey, VerifyingKey) {
 /// * `ClientPublicKey` - User Public Key
 pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
     let sk = Scalar::random(&mut OsRng);
-    let pk = RistrettoPoint::mul_base(&sk).compress();
+    let pk = RistrettoPoint::mul_base(&sk);
 
     (sk, pk)
 }
@@ -90,8 +90,8 @@ pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
 pub fn compute_public_key(k_f: &FrankingKey) -> FrankingPublicKey {
     let (x0, x1) = k_f;
 
-    let g0 = RistrettoPoint::mul_base(x0).compress();
-    let g1 = RistrettoPoint::mul_base(x1).compress();
+    let g0 = RistrettoPoint::mul_base(x0);
+    let g1 = RistrettoPoint::mul_base(x1);
 
     (g0, g1)
 }
@@ -215,8 +215,8 @@ pub fn serialize_registration(ctx: &SessionContext) -> [u8; REGISTRATION_SERIALI
     msg[..32].copy_from_slice(&ctx.id);
     // Serialize g0 and g1 and copy into msg
     let (g0, g1) = &ctx.k_pub;
-    msg[32..64].copy_from_slice(g0.as_bytes());
-    msg[64..96].copy_from_slice(g1.as_bytes());
+    msg[32..64].copy_from_slice(g0.compress().as_bytes());
+    msg[64..96].copy_from_slice(g1.compress().as_bytes());
 
     // Serialize t_expiry and copy into msg
     msg[96..104].copy_from_slice(&ctx.t_expiry.to_le_bytes());
@@ -229,9 +229,9 @@ pub fn serialize_registration(ctx: &SessionContext) -> [u8; REGISTRATION_SERIALI
 mod tests {
     use super::*;
 
-    fn test_session_context() -> (CompressedRistretto, CompressedRistretto, SessionContext) {
-        let g0 = CompressedRistretto::default();
-        let g1 = CompressedRistretto::default();
+    fn test_session_context() -> (RistrettoPoint, RistrettoPoint, SessionContext) {
+        let g0 = RistrettoPoint::default();
+        let g1 = RistrettoPoint::default();
 
         let ctx = SessionContext {
             id: [0u8; 32],
@@ -299,12 +299,12 @@ mod tests {
 
         assert_eq!(
             g0,
-            RistrettoPoint::mul_base(&x0).compress(),
+            RistrettoPoint::mul_base(&x0),
             "Computed g0 is incorrect"
         );
         assert_eq!(
             g1,
-            RistrettoPoint::mul_base(&x1).compress(),
+            RistrettoPoint::mul_base(&x1),
             "Computed g1 is incorrect"
         );
     }
@@ -351,12 +351,12 @@ mod tests {
         assert_eq!(&serialized[..32], &ctx.id, "Serialized id is incorrect");
         assert_eq!(
             &serialized[32..64],
-            g0.as_bytes(),
+            g0.compress().as_bytes(),
             "Serialized g0 is incorrect"
         );
         assert_eq!(
             &serialized[64..96],
-            g1.as_bytes(),
+            g1.compress().as_bytes(),
             "Serialized g1 is incorrect"
         );
         assert_eq!(

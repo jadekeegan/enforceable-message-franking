@@ -71,7 +71,16 @@ pub fn zk_mac_dlog_prove(
 
     // Compute fiat shamir challenge c = H(g0, g1, R, t0, t1, t_mac, t_dlog)
     let c = hash_challenge(
-        [g0, g1, r_point, tag, &t0, &t1, &t_mac, &t_dlog],
+        [
+            &g0.compress(),
+            &g1.compress(),
+            r_point,
+            tag,
+            &t0,
+            &t1,
+            &t_mac,
+            &t_dlog,
+        ],
         m,
         &ctx.id,
         t_msg,
@@ -136,7 +145,16 @@ pub fn zk_mac_dlog_verify(
 
     // Recompute challenge c
     let c = hash_challenge(
-        [g0, g1, r_point, tag, t0, t1, t_mac, t_dlog],
+        [
+            &g0.compress(),
+            &g1.compress(),
+            r_point,
+            tag,
+            &t0,
+            &t1,
+            &t_mac,
+            &t_dlog,
+        ],
         m,
         &ctx.id,
         t_msg,
@@ -148,10 +166,8 @@ pub fn zk_mac_dlog_verify(
     let z_mac = RistrettoPoint::mul_base(&(z0 + z1 * h_m));
 
     // Verify commitments
-    let v0 = RistrettoPoint::mul_base(z0)
-        == t0.decompress().unwrap() + c_frank * g0.decompress().unwrap();
-    let v1 = RistrettoPoint::mul_base(z1)
-        == t1.decompress().unwrap() + c_frank * g1.decompress().unwrap();
+    let v0 = RistrettoPoint::mul_base(z0) == t0.decompress().unwrap() + c_frank * g0;
+    let v1 = RistrettoPoint::mul_base(z1) == t1.decompress().unwrap() + c_frank * g1;
     let v_mac = z_mac == t_mac.decompress().unwrap() + c_frank * tag.decompress().unwrap();
     let v_dlog = RistrettoPoint::mul_base(z_dlog)
         == t_dlog.decompress().unwrap() + c_dlog * r_point.decompress().unwrap();
@@ -202,8 +218,8 @@ mod test {
     ) {
         let k_f = (Scalar::from(1u64), Scalar::from(2u64));
         let k_pub = (
-            RistrettoPoint::mul_base(&k_f.0).compress(),
-            RistrettoPoint::mul_base(&k_f.1).compress(),
+            RistrettoPoint::mul_base(&k_f.0),
+            RistrettoPoint::mul_base(&k_f.1),
         );
         let r_point = CompressedRistretto::default();
         let m = b"Test message";

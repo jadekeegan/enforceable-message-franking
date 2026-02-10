@@ -68,8 +68,7 @@ pub fn zk_mac_dlog_prove(
 
     // Compute commitment for ElGamal encryption of MAC tag
     let t_c1 = RistrettoPoint::mul_base(&r2).compress(); // g^r2
-    let t_c2 =
-        (pk_enc.decompress().unwrap() * r2 + RistrettoPoint::mul_base(&(r0 + r1 * h_m))).compress(); // pk_enc^r2 * g^(r0 + r1*h)
+    let t_c2 = (pk_enc * r2 + RistrettoPoint::mul_base(&(r0 + r1 * h_m))).compress(); // pk_enc^r2 * g^(r0 + r1*h)
 
     // Simulate DLog proof
     let c_dlog = Scalar::random(&mut rng);
@@ -80,7 +79,16 @@ pub fn zk_mac_dlog_prove(
     // Compute fiat shamir challenge c = H(g0, g1, R, T (c1, c2), t0, t1, t_c1, t_c2, t_dlog)
     let c = hash_challenge(
         [
-            g0, g1, r_point, &enc_tag.0, &enc_tag.1, &t0, &t1, &t_c1, &t_c2, &t_dlog,
+            &g0.compress(),
+            &g1.compress(),
+            r_point,
+            &enc_tag.0,
+            &enc_tag.1,
+            &t0,
+            &t1,
+            &t_c1,
+            &t_c2,
+            &t_dlog,
         ],
         m,
         &ctx.id,
@@ -154,7 +162,16 @@ pub fn zk_mac_dlog_verify(
     // Recompute challenge c
     let c = hash_challenge(
         [
-            g0, g1, r_point, &enc_tag.0, &enc_tag.1, t0, t1, t_c1, t_c2, t_dlog,
+            &g0.compress(),
+            &g1.compress(),
+            r_point,
+            &enc_tag.0,
+            &enc_tag.1,
+            t0,
+            t1,
+            t_c1,
+            t_c2,
+            t_dlog,
         ],
         m,
         &ctx.id,
@@ -167,13 +184,11 @@ pub fn zk_mac_dlog_verify(
     let z_mac = RistrettoPoint::mul_base(&(z0 + z1 * h_m));
 
     // Verify commitments
-    let v0 = RistrettoPoint::mul_base(z0)
-        == t0.decompress().unwrap() + c_frank * g0.decompress().unwrap(); // g^z0 == t0 * g0^c_frank
-    let v1 = RistrettoPoint::mul_base(z1)
-        == t1.decompress().unwrap() + c_frank * g1.decompress().unwrap(); // g^z1 == t1 * g1^c_frank
+    let v0 = RistrettoPoint::mul_base(z0) == t0.decompress().unwrap() + c_frank * g0; // g^z0 == t0 * g0^c_frank
+    let v1 = RistrettoPoint::mul_base(z1) == t1.decompress().unwrap() + c_frank * g1; // g^z1 == t1 * g1^c_frank
     let v_c1 = RistrettoPoint::mul_base(z_enc)
         == t_c1.decompress().unwrap() + c_frank * enc_tag.0.decompress().unwrap(); // g^z_enc == t_c1 * enc_tag.0^c_frank
-    let v_c2 = z_enc * pk_enc.decompress().unwrap() + z_mac
+    let v_c2 = z_enc * pk_enc + z_mac
         == t_c2.decompress().unwrap() + c_frank * enc_tag.1.decompress().unwrap(); // pk_enc^z_enc * g^(z0 + z1*h) == t_c2 * enc_tag.1^c_frank
     let v_dlog = RistrettoPoint::mul_base(z_dlog)
         == t_dlog.decompress().unwrap() + c_dlog * r_point.decompress().unwrap(); // g^z_dlog == t_dlog * R^c_dlog
@@ -225,10 +240,10 @@ mod test {
     ) {
         let k_f = (Scalar::from(1u64), Scalar::from(2u64));
         let k_pub = (
-            RistrettoPoint::mul_base(&k_f.0).compress(),
-            RistrettoPoint::mul_base(&k_f.1).compress(),
+            RistrettoPoint::mul_base(&k_f.0),
+            RistrettoPoint::mul_base(&k_f.1),
         );
-        let pk_enc = RistrettoPoint::mul_base(&Scalar::from(3u64)).compress();
+        let pk_enc = RistrettoPoint::mul_base(&Scalar::from(3u64));
         let r_point = RistrettoPoint::mul_base(&Scalar::from(5u64)).compress();
         let m = b"Test message";
         let t_msg = 0u64;
@@ -252,7 +267,7 @@ mod test {
         let r_enc = Scalar::from(7u64);
         let enc_tag = (
             RistrettoPoint::mul_base(&r_enc).compress(),
-            (r_enc * pk_enc.decompress().unwrap() + tag.decompress().unwrap()).compress(),
+            (r_enc * pk_enc + tag.decompress().unwrap()).compress(),
         );
 
         (r_enc, enc_tag)
@@ -268,7 +283,7 @@ mod test {
         let r_enc = Scalar::from(7u64);
         let enc_tag = (
             RistrettoPoint::mul_base(&r_enc).compress(),
-            (r_enc * pk_enc.decompress().unwrap() + tag.decompress().unwrap()).compress(),
+            (r_enc * pk_enc + tag.decompress().unwrap()).compress(),
         );
 
         // Compute proof on k_f and tag
