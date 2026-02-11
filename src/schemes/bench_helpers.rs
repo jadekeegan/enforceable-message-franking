@@ -28,7 +28,9 @@ pub fn test_basic_init_client_with_keys(
     let client = basic::Client::new();
 
     let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
-    (client, k_f, k_pub)
+    let decompressed_k_pub = (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap());
+
+    (client, k_f, decompressed_k_pub)
 }
 
 // Set Up Moderator, Sender, and Receiver and Session Keys
@@ -51,7 +53,7 @@ pub fn test_basic_init_full_session_data(
 
     let ctx = SessionContext {
         id: sender.id,
-        k_pub,
+        k_pub: (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap()),
         t_expiry,
     };
 
@@ -133,7 +135,9 @@ pub fn test_elgamal_init_client_with_keys(
     let client = elgamal::Client::new();
 
     let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
-    (client, k_f, k_pub)
+    let decompressed_k_pub = (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap());
+
+    (client, k_f, decompressed_k_pub)
 }
 
 // Set Up Moderator, Sender, and Receiver and Session Keys
@@ -156,7 +160,7 @@ pub fn test_elgamal_init_full_session_data(
 
     let ctx = SessionContext {
         id: sender.id,
-        k_pub,
+        k_pub: (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap()),
         t_expiry,
     };
 

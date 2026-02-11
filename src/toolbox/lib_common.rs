@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use curve25519_dalek::{RistrettoPoint, Scalar};
+use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use rand::RngCore;
@@ -24,10 +24,41 @@ pub type ClientSecretKey = Scalar;
 pub type ClientPublicKey = RistrettoPoint;
 pub type ClientId = [u8; 32];
 
+// Compressed version for communication
+pub type CompressedFrankingPublicKey = (CompressedRistretto, CompressedRistretto);
+
 pub struct SessionContext {
     pub id: ClientId,             // User Identifier
     pub k_pub: FrankingPublicKey, // Franking Public Key (g0, g1)
     pub t_expiry: u64,            // Signature Expiry Time
+}
+pub struct CompressedSessionContext {
+    pub id: ClientId,                       // User Identifier
+    pub k_pub: CompressedFrankingPublicKey, // Compressed Franking Public Key (g0, g1)
+    pub t_expiry: u64,                      // Signature Expiry Time
+}
+impl From<&SessionContext> for CompressedSessionContext {
+    fn from(ctx: &SessionContext) -> Self {
+        let compressed_k_pub = (ctx.k_pub.0.compress(), ctx.k_pub.1.compress());
+
+        CompressedSessionContext {
+            id: ctx.id,
+            k_pub: compressed_k_pub,
+            t_expiry: ctx.t_expiry,
+        }
+    }
+}
+impl From<&CompressedSessionContext> for SessionContext {
+    fn from(compressed_ctx: &CompressedSessionContext) -> Self {
+        let g0 = compressed_ctx.k_pub.0.decompress().unwrap();
+        let g1 = compressed_ctx.k_pub.1.decompress().unwrap();
+
+        SessionContext {
+            id: compressed_ctx.id,
+            k_pub: (g0, g1),
+            t_expiry: compressed_ctx.t_expiry,
+        }
+    }
 }
 
 // Compute Timestamps for expiry and message
@@ -127,12 +158,13 @@ pub fn register_user(
     sk_m: &SigningKey,
     id: &ClientId,
     t_expiry: u64,
-) -> (FrankingKey, FrankingPublicKey, Signature) {
+) -> (FrankingKey, CompressedFrankingPublicKey, Signature) {
     // Franking Key Generation (x0, x1)
     let k_f = mac::keygen();
 
     // Public Key Generation (g^x0, g^x1)
     let k_pub = compute_public_key(&k_f);
+    let compressed_k_pub = (k_pub.0.compress(), k_pub.1.compress());
 
     // Construct session context for serialization
     let ctx = SessionContext {
@@ -147,7 +179,7 @@ pub fn register_user(
     // Signature over registration data
     let sig = sk_m.sign(&msg);
 
-    (k_f, k_pub, sig)
+    (k_f, compressed_k_pub, sig)
 }
 
 // Session Init
@@ -166,15 +198,17 @@ pub fn register_user(
 pub fn session_init(
     pk_m: &VerifyingKey,
     k_f: &FrankingKey,
-    ctx: &SessionContext,
+    ctx: &CompressedSessionContext,
     sig: &Signature,
 ) -> bool {
+    let decompressed_ctx = SessionContext::from(ctx);
+
     // Verify FrankingKey and PublicKey
     let computed_k_pub = compute_public_key(k_f);
-    let is_k_pub_valid = ctx.k_pub == computed_k_pub;
+    let is_k_pub_valid = decompressed_ctx.k_pub == computed_k_pub;
 
     // Serialize message registration data and verify signature
-    let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(ctx);
+    let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(&decompressed_ctx);
     let is_sig_valid = pk_m.verify(&data, sig).is_ok();
 
     is_k_pub_valid && is_sig_valid
@@ -190,9 +224,15 @@ pub fn session_init(
 ///
 /// # Returns
 /// * `bool` - indicating acceptance (true) or rejection (false)
-pub fn accept_session(pk_m: &VerifyingKey, ctx: &SessionContext, sig: &Signature) -> bool {
+pub fn accept_session(
+    pk_m: &VerifyingKey,
+    ctx: &CompressedSessionContext,
+    sig: &Signature,
+) -> bool {
+    let decompressed_ctx = SessionContext::from(ctx);
+
     // Serialize message registration data and verify signature
-    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(ctx);
+    let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(&decompressed_ctx);
 
     // Verify signature
     pk_m.verify(&msg, sig).is_ok()

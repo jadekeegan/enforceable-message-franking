@@ -81,7 +81,7 @@ impl Moderator {
         &self,
         id: &ClientId,
         t_expiry: u64,
-    ) -> (FrankingKey, FrankingPublicKey, Signature) {
+    ) -> (FrankingKey, CompressedFrankingPublicKey, Signature) {
         register_user(&self.sk.sk_sig, id, t_expiry)
     }
 
@@ -148,7 +148,7 @@ impl Client {
         &self,
         pk_m: &ModeratorPublicKey,
         k_f: &FrankingKey,
-        ctx: &SessionContext,
+        ctx: &CompressedSessionContext,
         sig: &Signature,
     ) -> bool {
         session_init(&pk_m.pk_sig, k_f, ctx, sig)
@@ -167,7 +167,7 @@ impl Client {
     pub fn accept_session(
         &self,
         pk_m: &VerifyingKey,
-        ctx: &SessionContext,
+        ctx: &CompressedSessionContext,
         sig: &Signature,
     ) -> bool {
         accept_session(pk_m, ctx, sig)
@@ -286,7 +286,7 @@ mod test {
 
         let ctx = SessionContext {
             id: client.id,
-            k_pub,
+            k_pub: (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap()),
             t_expiry,
         };
 
@@ -304,7 +304,7 @@ mod test {
         let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
 
         let (x0, x1) = k_f;
-        let (g0, g1) = k_pub;
+        let (g0, g1) = (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap());
 
         assert!(RistrettoPoint::mul_base(&x0) == g0);
         assert!(RistrettoPoint::mul_base(&x1) == g1);

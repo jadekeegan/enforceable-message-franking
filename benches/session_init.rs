@@ -7,11 +7,12 @@ pub fn bench_basic_session_init(c: &mut Criterion) {
     let t_expiry = compute_timestamp(WEEK_OFFSET);
     let (moderator, _sender, _receiver, k_f, ctx, sig) =
         test_basic_init_full_session_data(t_expiry);
+    let compressed_ctx = CompressedSessionContext::from(&ctx);
 
     // Benchmark
     let mut group = c.benchmark_group("common");
     group.bench_function("session_init()", |b| {
-        b.iter(|| black_box(session_init(&moderator.pk, &k_f, &ctx, &sig)))
+        b.iter(|| black_box(session_init(&moderator.pk, &k_f, &compressed_ctx, &sig)))
     });
     group.finish();
 }

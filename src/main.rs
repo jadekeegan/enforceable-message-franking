@@ -69,6 +69,9 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
     let t_expiry = compute_timestamp(WEEK_OFFSET);
     let (moderator, sender, receiver, k_f, ctx, sig) = test_basic_init_full_session_data(t_expiry);
 
+    // Compress ctx for communication
+    let compressed_ctx = CompressedSessionContext::from(&ctx);
+
     if print_costs {
         // RegisterUser Communication Cost (Moderator to Client)
         // Moderator RegisterUser ---> Sender SessionInit
@@ -86,7 +89,7 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
 
     // Sender Initializes Session
     println!("===> Sender Initializing Session");
-    let session_init_success = sender.session_init(&moderator.pk, &k_f, &ctx, &sig);
+    let session_init_success = sender.session_init(&moderator.pk, &k_f, &compressed_ctx, &sig);
     status!(
         session_init_success,
         "Sender session initialization successful.",
@@ -109,7 +112,7 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
 
     // Receiver Verifies and Accepts Sender Session
     println!("===> Receiver Accepting Sender Session");
-    let accept_session_success = receiver.accept_session(&moderator.pk, &ctx, &sig);
+    let accept_session_success = receiver.accept_session(&moderator.pk, &compressed_ctx, &sig);
     status!(
         accept_session_success,
         "Receiver successfully accepted sender session.",
@@ -125,6 +128,8 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
             + mem::size_of::<CompressedRistretto>() * 2;
         println!("Session Storage Overhead: {} (bytes)", session_storage_cost);
     }
+
+    // Note: Proceed using decompressed context since the client should have the data.
 
     // Initialize Message
     let m = test_init_message(msg_size);
@@ -207,6 +212,9 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
     let (moderator, sender, receiver, k_f, ctx, sig) =
         test_elgamal_init_full_session_data(t_expiry);
 
+    // Compress ctx for communication
+    let compressed_ctx = CompressedSessionContext::from(&ctx);
+
     if print_costs {
         // RegisterUser Communication Cost (Moderator to Client)
         // Moderator RegisterUser ---> Sender SessionInit
@@ -224,7 +232,7 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
 
     // Sender Initializes Session
     println!("===> Sender Initializing Session");
-    let session_init_success = sender.session_init(&moderator.pk, &k_f, &ctx, &sig);
+    let session_init_success = sender.session_init(&moderator.pk, &k_f, &compressed_ctx, &sig);
     status!(
         session_init_success,
         "Sender session initialization successful.",
@@ -247,7 +255,8 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
 
     // Receiver Verifies and Accepts Sender Session
     println!("===> Receiver Accepting Sender Session");
-    let accept_session_success = receiver.accept_session(&moderator.pk.pk_sig, &ctx, &sig);
+    let accept_session_success =
+        receiver.accept_session(&moderator.pk.pk_sig, &compressed_ctx, &sig);
     status!(
         accept_session_success,
         "Receiver successfully accepted sender session.",
@@ -262,6 +271,8 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
             + mem::size_of::<CompressedRistretto>() * 2;
         println!("Session Storage Overhead: {} (bytes)", session_storage_cost);
     }
+
+    // Note: Proceed using decompressed context since the client should have the data.
 
     // Initialize Message
     let m = test_init_message(msg_size);
