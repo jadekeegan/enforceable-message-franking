@@ -70,7 +70,7 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
     let (moderator, sender, receiver, k_f, ctx, sig) = test_basic_init_full_session_data(t_expiry);
 
     // Compress ctx for communication
-    let compressed_ctx = CompressedSessionContext::from(&ctx);
+    let compressed_ctx = ctx.compress();
 
     if print_costs {
         // RegisterUser Communication Cost (Moderator to Client)
@@ -213,7 +213,7 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
         test_elgamal_init_full_session_data(t_expiry);
 
     // Compress ctx for communication
-    let compressed_ctx = CompressedSessionContext::from(&ctx);
+    let compressed_ctx = ctx.compress();
 
     if print_costs {
         // RegisterUser Communication Cost (Moderator to Client)

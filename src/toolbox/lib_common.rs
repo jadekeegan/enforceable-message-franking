@@ -32,31 +32,35 @@ pub struct SessionContext {
     pub k_pub: FrankingPublicKey, // Franking Public Key (g0, g1)
     pub t_expiry: u64,            // Signature Expiry Time
 }
+impl SessionContext {
+    pub fn compress(&self) -> CompressedSessionContext {
+        let compressed_k_pub = (self.k_pub.0.compress(), self.k_pub.1.compress());
+
+        CompressedSessionContext {
+            id: self.id,
+            k_pub: compressed_k_pub,
+            t_expiry: self.t_expiry,
+        }
+    }
+}
+
 pub struct CompressedSessionContext {
     pub id: ClientId,                       // User Identifier
     pub k_pub: CompressedFrankingPublicKey, // Compressed Franking Public Key (g0, g1)
     pub t_expiry: u64,                      // Signature Expiry Time
 }
-impl From<&SessionContext> for CompressedSessionContext {
-    fn from(ctx: &SessionContext) -> Self {
-        let compressed_k_pub = (ctx.k_pub.0.compress(), ctx.k_pub.1.compress());
 
-        CompressedSessionContext {
-            id: ctx.id,
-            k_pub: compressed_k_pub,
-            t_expiry: ctx.t_expiry,
-        }
-    }
-}
-impl From<&CompressedSessionContext> for SessionContext {
-    fn from(compressed_ctx: &CompressedSessionContext) -> Self {
-        let g0 = compressed_ctx.k_pub.0.decompress().unwrap();
-        let g1 = compressed_ctx.k_pub.1.decompress().unwrap();
+impl CompressedSessionContext {
+    pub fn decompress(&self) -> SessionContext {
+        let decompressed_k_pub = (
+            self.k_pub.0.decompress().unwrap(),
+            self.k_pub.1.decompress().unwrap(),
+        );
 
         SessionContext {
-            id: compressed_ctx.id,
-            k_pub: (g0, g1),
-            t_expiry: compressed_ctx.t_expiry,
+            id: self.id,
+            k_pub: decompressed_k_pub,
+            t_expiry: self.t_expiry,
         }
     }
 }
@@ -201,7 +205,7 @@ pub fn session_init(
     ctx: &CompressedSessionContext,
     sig: &Signature,
 ) -> bool {
-    let decompressed_ctx = SessionContext::from(ctx);
+    let decompressed_ctx = ctx.decompress();
 
     // Verify FrankingKey and PublicKey
     let computed_k_pub = compute_public_key(k_f);
@@ -229,7 +233,7 @@ pub fn accept_session(
     ctx: &CompressedSessionContext,
     sig: &Signature,
 ) -> bool {
-    let decompressed_ctx = SessionContext::from(ctx);
+    let decompressed_ctx = ctx.decompress();
 
     // Serialize message registration data and verify signature
     let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(&decompressed_ctx);

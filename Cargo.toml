@@ -33,11 +33,11 @@ name = "basic_moderator_keygen"
 harness = false
 
 [[bench]]
-name = "basic_register_user"
+name = "basic_moderate"
 harness = false
 
 [[bench]]
-name = "basic_moderate"
+name = "register_user"
 harness = false
 
 [[bench]]
