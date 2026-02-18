@@ -1,10 +1,14 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::LazyLock,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use rand::RngCore;
 use rand::rngs::OsRng;
+use sha2::Sha512;
 use signature::{Signer, Verifier};
 
 use crate::toolbox::lib_mac_ggm as mac;
@@ -16,6 +20,14 @@ pub const REGISTRATION_SERIALIZATION_LEN: usize = 32 + 32 + 32 + 8;
 pub const HOUR_OFFSET: u64 = 3_600; // 1 hour in seconds
 pub const DAY_OFFSET: u64 = 86_400; // 1 day in seconds
 pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
+
+// Generators for Pedersen Multi-Commitment
+static G0: LazyLock<RistrettoPoint> =
+    LazyLock::new(|| RistrettoPoint::hash_from_bytes::<Sha512>(b"base g0"));
+static G1: LazyLock<RistrettoPoint> =
+    LazyLock::new(|| RistrettoPoint::hash_from_bytes::<Sha512>(b"base g1"));
+static H: LazyLock<RistrettoPoint> =
+    LazyLock::new(|| RistrettoPoint::hash_from_bytes::<Sha512>(b"base h"));
 
 // Type Definitions
 pub type FrankingKey = (Scalar, Scalar);
