@@ -77,12 +77,12 @@ impl Moderator {
     /// * `k_f` - Franking Key
     /// * `k_pub` - Public Key
     /// * `sig` - Moderator Signature on User Registration
-    pub fn register_user(
+    pub fn issue_cert(
         &self,
         id: &ClientId,
         t_expiry: u64,
-    ) -> (FrankingKey, CompressedFrankingPublicKey, Signature) {
-        register_user(&self.sk.sk_sig, id, t_expiry)
+    ) -> (FrankingKey, Scalar, CompressedPublicFrankingKey, Signature) {
+        issue_cert(&self.sk.sk_sig, id, t_expiry)
     }
 
     // Moderate Function
@@ -139,6 +139,7 @@ impl Client {
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
     /// * `k_f` - Franking Key
+    /// * `r` - Random Scalar for Pedersen Commitment
     /// * `ctx` - Session Context
     /// * `sig` - Moderator Signature on User Registration
     ///
@@ -148,10 +149,11 @@ impl Client {
         &self,
         pk_m: &ModeratorPublicKey,
         k_f: &FrankingKey,
+        r: &Scalar,
         ctx: &CompressedSessionContext,
         sig: &Signature,
     ) -> bool {
-        session_init(&pk_m.pk_sig, k_f, ctx, sig)
+        session_init(&pk_m.pk_sig, k_f, r, ctx, sig)
     }
 
     // AcceptSession Function
@@ -181,6 +183,7 @@ impl Client {
     /// * `pk_m` - Moderator Public Key
     /// * `pk_r` - Recipient Public Key (ClientPublicKey)
     /// * `k_f` - Franking Key
+    /// * `r` - Random Scalar for Pedersen Commitment
     /// * `m` - Message to be Franked
     /// * `t_msg` - Message Timestamp
     /// * `ctx` - Session Context
@@ -192,6 +195,7 @@ impl Client {
         pk_m: &ModeratorPublicKey,
         pk_r: &ClientPublicKey,
         k_f: &FrankingKey,
+        r: &Scalar,
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
@@ -200,7 +204,7 @@ impl Client {
         let alpha = Scalar::random(&mut OsRng);
 
         // Compute R (pk_r)^alpha
-        let r = (alpha * pk_r).compress();
+        let r_point = (alpha * pk_r).compress();
 
         // Compute E_r = g^alpha
         let e_r = RistrettoPoint::mul_base(&alpha).compress();
@@ -212,11 +216,21 @@ impl Client {
         let (enc_tag, r_enc) = elgamal::encrypt(&pk_m.pk_enc, &tag);
 
         // Compute proof pi
-        let pi = zk_mac_dlog_prove(&r, k_f, &r_enc, &pk_m.pk_enc, &enc_tag, m, t_msg, ctx);
+        let pi = zk_mac_dlog_prove(
+            &r_point,
+            k_f,
+            &r,
+            &r_enc,
+            &pk_m.pk_enc,
+            &enc_tag,
+            m,
+            t_msg,
+            ctx,
+        );
 
         // Return Franking Data
         ElGamalFrankingData {
-            r_point: r,
+            r_point,
             e_r,
             enc_tag,
             pi,
@@ -277,16 +291,16 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_register_user_generates_valid_sig() {
+    fn test_issue_cert_generates_valid_sig() {
         let moderator = Moderator::new();
         let client = Client::new();
 
         let t_expiry = compute_timestamp(WEEK_OFFSET);
-        let (_k_f, k_pub, sig) = moderator.register_user(&client.id, t_expiry);
+        let (_k_f, _r, k_pub, sig) = moderator.issue_cert(&client.id, t_expiry);
 
         let ctx = SessionContext {
             id: client.id,
-            k_pub: (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap()),
+            k_pub: k_pub.decompress().unwrap(),
             t_expiry,
         };
 
@@ -296,17 +310,19 @@ mod test {
     }
 
     #[test]
-    fn test_register_user_generates_valid_keys() {
+    fn test_issue_cert_generates_valid_keys() {
         let moderator = Moderator::new();
         let client = Client::new();
 
         let t_expiry = compute_timestamp(WEEK_OFFSET);
-        let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
+        let (k_f, r, k_pub, _sig) = moderator.issue_cert(&client.id, t_expiry);
 
         let (x0, x1) = k_f;
-        let (g0, g1) = (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap());
 
-        assert!(RistrettoPoint::mul_base(&x0) == g0);
-        assert!(RistrettoPoint::mul_base(&x1) == g1);
+        assert_eq!(
+            compute_pedersen_multicomm(&x0, &x1, &r),
+            k_pub.decompress().unwrap(),
+            "Franking key does not match public key"
+        );
     }
 }
