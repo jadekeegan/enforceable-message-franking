@@ -144,14 +144,7 @@ pub fn zk_mac_dlog_verify(
 
     // Recompute challenge c
     let c = hash_challenge(
-        [
-            &ctx.k_pub.compress(),
-            r_point,
-            tag,
-            &t_frank,
-            &t_mac,
-            &t_dlog,
-        ],
+        [&ctx.k_pub.compress(), r_point, tag, t_frank, t_mac, t_dlog],
         m,
         &ctx.id,
         t_msg,
