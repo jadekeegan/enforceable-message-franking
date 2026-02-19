@@ -1,5 +1,5 @@
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_emf_enc::*;
+use crate::toolbox::lib_elgamal::*;
 use crate::toolbox::lib_mac_ggm::hash_context;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};

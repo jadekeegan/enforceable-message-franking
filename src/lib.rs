@@ -7,7 +7,7 @@ pub mod schemes {
 pub mod toolbox {
     pub mod lib_lite_zkp;
     pub mod lib_common;
-    pub mod lib_emf_enc;
+    pub mod lib_elgamal;
     pub mod lib_emf_zkp;
     pub mod lib_mac_ggm;
 }

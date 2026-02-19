@@ -2,7 +2,7 @@ use crate::schemes::lib_emf as emf;
 use crate::schemes::lib_emf::ModeratorPublicKey;
 use crate::schemes::lib_lite as lite;
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_emf_enc as emf_enc;
+use crate::toolbox::lib_elgamal as elgamal;
 use crate::toolbox::lib_mac_ggm as mac_ggm;
 use curve25519_dalek::Scalar;
 use curve25519_dalek::ristretto::CompressedRistretto;
@@ -176,14 +176,14 @@ pub fn test_emf_init_messages_with_tags(
     k_f: &FrankingKey,
     client: &emf::Client,
     t_msg: u64,
-) -> (Vec<String>, Vec<emf_enc::ElGamalCiphertext>) {
+) -> (Vec<String>, Vec<elgamal::ElGamalCiphertext>) {
     let ms = test_init_messages();
 
     // Generate Tags for Each Message
-    let mut tags: Vec<emf_enc::ElGamalCiphertext> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut tags: Vec<elgamal::ElGamalCiphertext> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
         let (tag, _h_m) = mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg);
-        tags.push(emf_enc::encrypt(&client.pk, &tag).0);
+        tags.push(elgamal::encrypt(&client.pk, &tag).0);
     }
 
     (ms, tags)

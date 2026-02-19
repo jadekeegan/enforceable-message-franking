@@ -101,15 +101,15 @@ name = "mac_ggm_verify"
 harness = false
 
 [[bench]]
-name = "emf_enc_keygen"
+name = "elgamal_keygen"
 harness = false
 
 [[bench]]
-name = "emf_enc_encrypt"
+name = "elgamal_encrypt"
 harness = false
 
 [[bench]]
-name = "emf_enc_decrypt"
+name = "elgamal_decrypt"
 harness = false
 
 [[bench]]

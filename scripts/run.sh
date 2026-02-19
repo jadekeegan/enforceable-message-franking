@@ -14,8 +14,5 @@ cargo bench --bench emf_frank --bench emf_verify --bench emf_moderate
 echo "\n\nGenerating Benchmark Tables!\n\n"
 python3 scripts/generate_table.py --scheme all
 
-echo "\n\nGenerating Benchmark Plots!\n\n"
-python3 scripts/generate_plot.py --scheme all
-
 echo "\n\nRunning Schemes and Reporting Communication Costs!\n\n"
 cargo run -- --msg-size 100 --lite --emf --print-costs

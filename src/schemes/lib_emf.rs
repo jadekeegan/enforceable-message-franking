@@ -1,6 +1,6 @@
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_emf_enc as emf;
-use crate::toolbox::lib_emf_enc::{EMFPublicKey, EMFSecretKey, ElGamalCiphertext};
+use crate::toolbox::lib_elgamal as elgamal;
+use crate::toolbox::lib_elgamal::{EMFPublicKey, EMFSecretKey, ElGamalCiphertext};
 use crate::toolbox::lib_emf_zkp::*;
 use crate::toolbox::lib_mac_ggm as mac;
 use curve25519_dalek::ristretto::CompressedRistretto;
@@ -41,7 +41,7 @@ pub struct EMFFrankingData {
 /// * `ModeratorPublicKey` - Moderator Verifying Key and Elgamal Encryption Key
 pub fn moderator_keygen() -> (ModeratorSecretKey, ModeratorPublicKey) {
     let (sk_sig, pk_sig) = moderator_sig_keygen();
-    let (sk_dec, pk_enc) = emf::keygen();
+    let (sk_dec, pk_enc) = elgamal::keygen();
 
     (
         ModeratorSecretKey { sk_sig, sk_dec },
@@ -106,7 +106,7 @@ impl Moderator {
         enc_tag: &ElGamalCiphertext,
     ) -> bool {
         let is_time_valid = t_msg < ctx.t_expiry;
-        let tag = emf::decrypt(&self.sk.sk_dec, enc_tag);
+        let tag = elgamal::decrypt(&self.sk.sk_dec, enc_tag);
         let is_tag_valid = mac::verify(k_f, m, &ctx.id, t_msg, &tag);
 
         is_time_valid && is_tag_valid
@@ -213,7 +213,7 @@ impl Client {
         let (tag, h_m) = mac::tag(k_f, m, &ctx.id, t_msg);
 
         // Encrypt tag using ElGamal
-        let (enc_tag, r_enc) = emf::encrypt(&pk_m.pk_enc, &tag);
+        let (enc_tag, r_enc) = elgamal::encrypt(&pk_m.pk_enc, &tag);
 
         // Compute proof pi
         let pi = zk_mac_dlog_prove(
