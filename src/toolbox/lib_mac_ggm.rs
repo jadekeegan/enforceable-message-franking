@@ -5,7 +5,7 @@ use rand::rngs::OsRng;
 use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
 use curve25519_dalek::scalar::Scalar;
 
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha512_256};
 
 // MAC Key Generation
 /// Generates a franking key consisting of two random scalars.
@@ -34,7 +34,7 @@ pub fn keygen() -> FrankingKey {
 /// # Returns
 /// * `[u8; 32]` - SHA-256 hash of the input data as a 32-byte array
 pub fn hash_context(m: &[u8], id: &ClientId, t_msg: u64) -> Scalar {
-    let mut hasher = Sha256::new();
+    let mut hasher = Sha512_256::new();
 
     hasher.update(id);
     hasher.update(t_msg.to_le_bytes());
