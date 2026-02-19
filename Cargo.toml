@@ -1,5 +1,5 @@
 [package]
-name = "federated_franking_impl"
+name = "enforceable_message_franking"
 version = "0.1.0"
 edition = "2024"
 

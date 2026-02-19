@@ -36,7 +36,7 @@ We implement basic unit tests for correctness, which can be found in their corre
 To run the schemes, run the `main.rs` file using `cargo run --` with the appropriate parameters.
 
 ```bash
-Usage: federated_franking_impl.exe [OPTIONS]
+Usage: enforceable_message_franking.exe [OPTIONS]
 
 Options:
       --lite

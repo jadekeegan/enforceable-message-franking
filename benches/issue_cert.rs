@@ -1,6 +1,6 @@
 use criterion::*;
-use federated_franking_impl::schemes::bench_helpers::*;
-use federated_franking_impl::toolbox::lib_common::*;
+use enforceable_message_franking::schemes::bench_helpers::*;
+use enforceable_message_franking::toolbox::lib_common::*;
 
 // Note: Although we use the EMF-lite scheme's moderator's issue_cert, the benchmark is valid for both schemes since we
 // use the same helper function in each. We use the scheme specific method rather than the common helper

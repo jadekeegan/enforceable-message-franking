@@ -1,5 +1,5 @@
 use criterion::*;
-use federated_franking_impl::schemes::lib_lite as lite;
+use enforceable_message_franking::schemes::lib_lite as lite;
 
 pub fn bench_moderator_keygen(c: &mut Criterion) {
     let mut group = c.benchmark_group("lite");

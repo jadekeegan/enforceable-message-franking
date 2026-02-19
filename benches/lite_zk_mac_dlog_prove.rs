@@ -1,9 +1,9 @@
 use criterion::*;
 
-use federated_franking_impl::schemes::bench_helpers::*;
-use federated_franking_impl::toolbox::lib_common::*;
-use federated_franking_impl::toolbox::lib_lite_zkp as zkp;
-use federated_franking_impl::toolbox::lib_mac_ggm as mac_ggm;
+use enforceable_message_franking::schemes::bench_helpers::*;
+use enforceable_message_franking::toolbox::lib_common::*;
+use enforceable_message_franking::toolbox::lib_lite_zkp as zkp;
+use enforceable_message_franking::toolbox::lib_mac_ggm as mac_ggm;
 
 pub fn bench_lite_zk_mac_dlog_prove(c: &mut Criterion) {
     // Set Up Session Data

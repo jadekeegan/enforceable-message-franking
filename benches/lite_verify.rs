@@ -1,6 +1,6 @@
 use criterion::*;
-use federated_franking_impl::schemes::bench_helpers::*;
-use federated_franking_impl::toolbox::lib_common::*;
+use enforceable_message_franking::schemes::bench_helpers::*;
+use enforceable_message_franking::toolbox::lib_common::*;
 
 pub fn bench_lite_verify(c: &mut Criterion) {
     // Set Up Session Data

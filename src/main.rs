@@ -3,8 +3,8 @@ use std::mem;
 use curve25519_dalek::Scalar;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use ed25519_dalek::Signature;
-use federated_franking_impl::schemes::bench_helpers::*;
-use federated_franking_impl::toolbox::lib_common::*;
+use enforceable_message_franking::schemes::bench_helpers::*;
+use enforceable_message_franking::toolbox::lib_common::*;
 
 use clap::Parser;
 

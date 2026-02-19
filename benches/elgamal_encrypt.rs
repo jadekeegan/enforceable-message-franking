@@ -1,6 +1,6 @@
 use criterion::*;
 use curve25519_dalek::RistrettoPoint;
-use federated_franking_impl::toolbox::lib_elgamal as elgamal;
+use enforceable_message_franking::toolbox::lib_elgamal as elgamal;
 use rand::rngs::OsRng;
 
 pub fn bench_elgamal_encrypt(c: &mut Criterion) {
