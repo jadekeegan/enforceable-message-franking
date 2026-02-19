@@ -77,11 +77,12 @@ pub fn test_lite(msg_size: usize, print_costs: bool) {
         // IssueCert Communication Cost (Moderator to Client)
         // Moderator IssueCert ---> Sender SessionInit
         // (1) Franking Key (k_f): 2 Scalars
-        // (2) Franking Public Key (k_pub): 2 CompressedRistrettos
-        // (3) Signature (sig): 1 Signature
-        let issue_cert_cost = mem::size_of::<Scalar>() * 2
-            + mem::size_of::<CompressedRistretto>() * 2
-            + mem::size_of::<Signature>();
+        // (2) Random R (r): 1 Scalar
+        // (3) Public Franking Key (k_pub): 1 CompressedRistretto
+        // (4) Signature (sig): 1 Signature
+        let issue_cert_cost = mem::size_of::<Scalar>() * (2 + 1) // k_f and r
+            + mem::size_of::<CompressedPublicFrankingKey>() // k_pub
+            + mem::size_of::<Signature>(); // sig
         println!("Issue Cert Communication Cost: {} (bytes)", issue_cert_cost);
     }
 
@@ -97,11 +98,11 @@ pub fn test_lite(msg_size: usize, print_costs: bool) {
     if print_costs {
         // SessionInit Communication Cost (Sender to Receiver)
         // (1) Signature (sig): 1 Signature
-        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 PublicFrankingKey (2 CompressedRistrettos)
-        let session_init_cost = mem::size_of::<Signature>()
-            + mem::size_of::<u64>()
-            + mem::size_of::<ClientId>()
-            + mem::size_of::<CompressedRistretto>() * 2;
+        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey (1 CompressedRistretto)
+        let session_init_cost = mem::size_of::<Signature>() // sig
+            + mem::size_of::<u64>() // t_expiry
+            + mem::size_of::<ClientId>() // id
+            + mem::size_of::<CompressedPublicFrankingKey>(); // k_pub
         println!(
             "Session Initialization Communication Cost: {} (bytes)",
             session_init_cost,
@@ -120,10 +121,10 @@ pub fn test_lite(msg_size: usize, print_costs: bool) {
     if print_costs {
         // Session Storage Cost (Receiver)
         // Receiver stores session data for sender
-        // (1) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 PublicFrankingKey (2 CompressedRistretto)
-        let session_storage_cost = mem::size_of::<u64>()
-            + mem::size_of::<ClientId>()
-            + mem::size_of::<CompressedRistretto>() * 2;
+        // (1) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 FrankingPublicKey (1 CompressedRistretto)
+        let session_storage_cost = mem::size_of::<u64>() // t_expiry
+            + mem::size_of::<ClientId>() // id
+            + mem::size_of::<CompressedPublicFrankingKey>(); // k_pub
         println!("Session Storage Overhead: {} (bytes)", session_storage_cost);
     }
 
@@ -142,9 +143,9 @@ pub fn test_lite(msg_size: usize, print_costs: bool) {
         // (1) R (r_point): 1 CompressedRistretto
         // (2) Ephemeral R (e_r): 1 CompressedRistretto
         // (3) Tag (tag): 1 CompressedRistretto
-        // (4) Proof (pi): 4 CompressedRistretto, 5 Scalars
-        let frank_cost =
-            mem::size_of::<CompressedRistretto>() * (1 + 1 + 1 + 4) + mem::size_of::<Scalar>() * 5;
+        // (4) Proof (pi): 3 CompressedRistretto, 6 Scalars
+        let frank_cost = mem::size_of::<CompressedRistretto>() * (1 + 1 + 1 + 3) // r_point, e_r, tag, pi commits (3)
+            + mem::size_of::<Scalar>() * 6; // pi challenges (2) and responses (4)
         println!("Franking Communication Cost: {} (bytes)", frank_cost);
     }
 
@@ -157,7 +158,7 @@ pub fn test_lite(msg_size: usize, print_costs: bool) {
     if print_costs {
         // Communication Cost of Verification (Receiver to Moderator)
         // (1) Tag (tag): 1 CompressedRistretto
-        let mod_cost = mem::size_of::<CompressedRistretto>();
+        let mod_cost = mem::size_of::<CompressedRistretto>(); // tag
         println!("Moderation Communication Cost: {} (bytes)", mod_cost);
     }
 
@@ -175,8 +176,9 @@ pub fn test_lite(msg_size: usize, print_costs: bool) {
         // (1) id: 1 ClientID
         // (2) Franking Key (k_f): 2 Scalars
         // (3) Expiration Timestamp (t_expiry): 1 u64
-        let mod_storage_cost =
-            mem::size_of::<ClientId>() + mem::size_of::<Scalar>() * 2 + mem::size_of::<u64>();
+        let mod_storage_cost = mem::size_of::<ClientId>() //id
+            + mem::size_of::<Scalar>() * 2 // k_f 
+            + mem::size_of::<u64>(); // t_expiry;
         println!("Moderation Storage Cost: {} (bytes)", mod_storage_cost);
     }
 
@@ -216,11 +218,12 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
         // IssueCert Communication Cost (Moderator to Client)
         // Moderator IssueCert ---> Sender SessionInit
         // (1) Franking Key (k_f): 2 Scalars
-        // (2) Franking Public Key (k_pub): 2 CompressedRistrettos
-        // (3) Signature (sig): 1 Signature
-        let issue_cert_cost = mem::size_of::<Scalar>() * 2
-            + mem::size_of::<CompressedRistretto>() * 2
-            + mem::size_of::<Signature>();
+        // (2) Random R (r): 1 Scalar
+        // (3) Public Franking Key (k_pub): 1 CompressedRistretto
+        // (4) Signature (sig): 1 Signature
+        let issue_cert_cost = mem::size_of::<Scalar>() * (2 + 1) // k_f and r
+            + mem::size_of::<CompressedPublicFrankingKey>() // k_pub
+            + mem::size_of::<Signature>(); // sig
         println!("Issue Cert Communication Cost: {} (bytes)", issue_cert_cost);
     }
 
@@ -236,11 +239,11 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
     if print_costs {
         // SessionInit Communication Cost (Sender to Receiver)
         // (1) Signature (sig): 1 Signature
-        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 PublicFrankingKey (2 CompressedRistrettos)
-        let session_init_cost = mem::size_of::<Signature>()
-            + mem::size_of::<u64>()
-            + mem::size_of::<ClientId>()
-            + mem::size_of::<CompressedRistretto>() * 2;
+        // (2) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 PublicFrankingKey (1 CompressedRistretto)
+        let session_init_cost = mem::size_of::<Signature>() // sig
+            + mem::size_of::<u64>() // t_expiry
+            + mem::size_of::<ClientId>() // id
+            + mem::size_of::<CompressedPublicFrankingKey>(); // k_pub
         println!(
             "Session Initialization Communication Cost: {} (bytes)",
             session_init_cost,
@@ -259,10 +262,10 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
 
     if print_costs {
         // Session Storage Cost
-        // (1) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 PublicFrankingKey (2 CompressedRistrettos)
-        let session_storage_cost = mem::size_of::<u64>()
-            + mem::size_of::<ClientId>()
-            + mem::size_of::<CompressedRistretto>() * 2;
+        // (1) Session Context (ctx): 1 u64 (t_expiry), 1 ClientID, 1 PublicFrankingKey (1 CompressedRistretto)
+        let session_storage_cost = mem::size_of::<u64>() // t_expiry
+            + mem::size_of::<ClientId>() // id
+            + mem::size_of::<CompressedPublicFrankingKey>(); // k_pub
         println!("Session Storage Overhead: {} (bytes)", session_storage_cost);
     }
 
@@ -289,9 +292,9 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
         // (1) R (r_point): 1 CompressedRistretto
         // (2) Ephemeral R (e_r): 1 CompressedRistretto
         // (3) Ciphertext (enc_tag): 2 CompressedRistretto
-        // (4) Proof (pi): 5 CompressedRistretto, 6 Scalars
-        let frank_cost =
-            mem::size_of::<CompressedRistretto>() * (1 + 1 + 2 + 5) + mem::size_of::<Scalar>() * 6;
+        // (4) Proof (pi): 4 CompressedRistretto, 7 Scalars
+        let frank_cost = mem::size_of::<CompressedRistretto>() * (1 + 1 + 2 + 4) // r_point, e_r, enc_tag (2), pi commits (4)
+             + mem::size_of::<Scalar>() * 7; // pi challenges (2) and responses (5)
         println!("Franking Communication Cost: {} (bytes)", frank_cost);
     }
 
@@ -304,7 +307,7 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
     if print_costs {
         // Communication Cost of Verification (Receiver to Moderator)
         // (1) Ciphertext (enc_tag): 2 CompressedRistretto
-        let mod_cost = mem::size_of::<CompressedRistretto>() * 2;
+        let mod_cost = mem::size_of::<CompressedRistretto>() * 2; // enc_tag (2)
         println!("Verification Communication Cost: {} (bytes)", mod_cost);
     }
 
@@ -322,8 +325,9 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
         // (1) id: 1 ClientID
         // (2) Franking Key (k_f): 2 Scalars
         // (3) Expiration Timestamp (t_expiry): 1 u64
-        let mod_storage_cost =
-            mem::size_of::<ClientId>() + mem::size_of::<Scalar>() * 2 + mem::size_of::<u64>();
+        let mod_storage_cost = mem::size_of::<ClientId>() //id
+            + mem::size_of::<Scalar>() * 2  // k_f
+            + mem::size_of::<u64>(); // t_expiry
         println!("Moderation Storage Cost: {} (bytes)", mod_storage_cost);
     }
 
