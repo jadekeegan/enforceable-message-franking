@@ -3,6 +3,7 @@ use criterion::*;
 use federated_franking_impl::schemes::bench_helpers::*;
 use federated_franking_impl::toolbox::lib_basic_zkp as zkp;
 use federated_franking_impl::toolbox::lib_common::*;
+use federated_franking_impl::toolbox::lib_mac_ggm as mac_ggm;
 
 pub fn bench_basic_zk_mac_dlog_prove(c: &mut Criterion) {
     // Set Up Session Data
@@ -28,6 +29,8 @@ pub fn bench_basic_zk_mac_dlog_prove(c: &mut Criterion) {
             format!("zk_mac_dlog_prove() message of size {}", msg_size),
             msg_size,
             |b, &_msg_size| {
+                let h_m = mac_ggm::hash_context(ms[j].as_bytes(), &ctx.id, t_msg);
+
                 b.iter(|| {
                     black_box(zkp::zk_mac_dlog_prove(
                         &fds[j].r_point,
@@ -35,6 +38,7 @@ pub fn bench_basic_zk_mac_dlog_prove(c: &mut Criterion) {
                         &r,
                         &fds[j].tag,
                         ms[j].as_bytes(), // Convert String to &[u8]
+                        &h_m,
                         t_msg,
                         &ctx,
                     ));

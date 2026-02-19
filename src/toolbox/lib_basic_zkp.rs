@@ -31,6 +31,7 @@ pub struct MacOrDlogZKProof {
 /// * `r` - Random Scalar for Pedersen Commitment
 /// * `tag` - MAC Tag
 /// * `m` - Message
+/// * `h_m` - Hash of the message context
 /// * `t_msg` - Message Timestamp
 /// * `ctx` - Session Context
 ///     
@@ -42,6 +43,7 @@ pub fn zk_mac_dlog_prove(
     r: &Scalar,
     tag: &CompressedRistretto,
     m: &[u8],
+    h_m: &Scalar,
     t_msg: u64,
     ctx: &SessionContext,
 ) -> MacOrDlogZKProof {
@@ -50,9 +52,6 @@ pub fn zk_mac_dlog_prove(
 
     // Unpack franking key
     let (x0, x1) = k_f;
-
-    // Compute message hash h
-    let h_m = hash_context(m, &ctx.id, t_msg);
 
     // Generate random scalars r0, r1
     let r0 = Scalar::random(&mut rng);
@@ -228,10 +227,10 @@ mod test {
         let (k_f, r, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
+        let (tag, h_m) = tag(&k_f, m, &ctx.id, t_msg);
 
         // Compute proof on k_f and tag
-        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r, &tag, m, t_msg, &ctx);
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r, &tag, m, &h_m, t_msg, &ctx);
 
         let is_valid = zk_mac_dlog_verify(&r_point, &tag, m, t_msg, &ctx, &pi);
         assert!(is_valid);
@@ -243,11 +242,11 @@ mod test {
         let (k_f, r, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
+        let (tag, h_m) = tag(&k_f, m, &ctx.id, t_msg);
 
         // Compute proof on invalid k_f and tag
         let invalid_k_f = (k_f.0 + Scalar::from(1u64), k_f.1);
-        let pi = zk_mac_dlog_prove(&r_point, &invalid_k_f, &r, &tag, m, t_msg, &ctx);
+        let pi = zk_mac_dlog_prove(&r_point, &invalid_k_f, &r, &tag, m, &h_m, t_msg, &ctx);
 
         let is_valid = zk_mac_dlog_verify(&r_point, &tag, m, t_msg, &ctx, &pi);
         assert!(!is_valid);
@@ -259,11 +258,11 @@ mod test {
         let (k_f, r, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
+        let (tag, h_m) = tag(&k_f, m, &ctx.id, t_msg);
 
         // Compute proof on k_f and invalid tag
         let invalid_tag = CompressedRistretto::default();
-        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r, &invalid_tag, m, t_msg, &ctx);
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r, &invalid_tag, m, &h_m, t_msg, &ctx);
 
         let is_valid = zk_mac_dlog_verify(&r_point, &tag, m, t_msg, &ctx, &pi);
         assert!(!is_valid);
@@ -275,11 +274,11 @@ mod test {
         let (k_f, r, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
+        let (tag, h_m) = tag(&k_f, m, &ctx.id, t_msg);
 
         // Compute proof on k_f and tag with invalid message
         let invalid_m = b"Invalid message";
-        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r, &tag, invalid_m, t_msg, &ctx);
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r, &tag, invalid_m, &h_m, t_msg, &ctx);
 
         let is_valid = zk_mac_dlog_verify(&r_point, &tag, invalid_m, t_msg, &ctx, &pi);
         assert!(!is_valid);
@@ -291,7 +290,7 @@ mod test {
         let (k_f, r, r_point, m, t_msg, ctx) = test_params();
 
         // Compute mac tag
-        let tag = tag(&k_f, m, &ctx.id, t_msg);
+        let (tag, h_m) = tag(&k_f, m, &ctx.id, t_msg);
 
         // Compute proof on k_f and tag with invalid context
         let invalid_ctx = SessionContext {
@@ -300,7 +299,7 @@ mod test {
             t_expiry: ctx.t_expiry + 1,
         };
 
-        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r, &tag, m, t_msg, &ctx);
+        let pi = zk_mac_dlog_prove(&r_point, &k_f, &r, &tag, m, &h_m, t_msg, &ctx);
 
         let is_valid = zk_mac_dlog_verify(&r_point, &tag, m, t_msg, &invalid_ctx, &pi);
         assert!(!is_valid);

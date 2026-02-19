@@ -88,7 +88,7 @@ pub fn test_basic_init_messages_with_tags(
     // Generate Tags for Each Message
     let mut tags: Vec<CompressedRistretto> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
-        tags.push(mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg));
+        tags.push(mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg).0);
     }
 
     (ms, tags)
@@ -182,7 +182,7 @@ pub fn test_elgamal_init_messages_with_tags(
     // Generate Tags for Each Message
     let mut tags: Vec<elgamal_enc::ElGamalCiphertext> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
-        let tag = mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg);
+        let (tag, _h_m) = mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg);
         tags.push(elgamal_enc::encrypt(&client.pk, &tag).0);
     }
 

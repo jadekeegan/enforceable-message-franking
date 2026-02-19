@@ -210,7 +210,7 @@ impl Client {
         let e_r = RistrettoPoint::mul_base(&alpha).compress();
 
         // Compute MAC Tag t
-        let tag = mac::tag(k_f, m, &ctx.id, t_msg);
+        let (tag, h_m) = mac::tag(k_f, m, &ctx.id, t_msg);
 
         // Encrypt tag using ElGamal
         let (enc_tag, r_enc) = elgamal::encrypt(&pk_m.pk_enc, &tag);
@@ -219,11 +219,12 @@ impl Client {
         let pi = zk_mac_dlog_prove(
             &r_point,
             k_f,
-            &r,
+            r,
             &r_enc,
             &pk_m.pk_enc,
             &enc_tag,
             m,
+            &h_m,
             t_msg,
             ctx,
         );
