@@ -37,7 +37,7 @@ name = "lite_moderate"
 harness = false
 
 [[bench]]
-name = "register_user"
+name = "issue_cert"
 harness = false
 
 [[bench]]

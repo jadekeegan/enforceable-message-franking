@@ -74,18 +74,15 @@ pub fn test_lite(msg_size: usize, print_costs: bool) {
     let compressed_ctx = ctx.compress();
 
     if print_costs {
-        // RegisterUser Communication Cost (Moderator to Client)
-        // Moderator RegisterUser ---> Sender SessionInit
+        // IssueCert Communication Cost (Moderator to Client)
+        // Moderator IssueCert ---> Sender SessionInit
         // (1) Franking Key (k_f): 2 Scalars
         // (2) Franking Public Key (k_pub): 2 CompressedRistrettos
         // (3) Signature (sig): 1 Signature
-        let register_user_cost = mem::size_of::<Scalar>() * 2
+        let issue_cert_cost = mem::size_of::<Scalar>() * 2
             + mem::size_of::<CompressedRistretto>() * 2
             + mem::size_of::<Signature>();
-        println!(
-            "Register User Communication Cost: {} (bytes)",
-            register_user_cost
-        );
+        println!("Issue Cert Communication Cost: {} (bytes)", issue_cert_cost);
     }
 
     // Sender Initializes Session
@@ -216,18 +213,15 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
     let compressed_ctx = ctx.compress();
 
     if print_costs {
-        // RegisterUser Communication Cost (Moderator to Client)
-        // Moderator RegisterUser ---> Sender SessionInit
+        // IssueCert Communication Cost (Moderator to Client)
+        // Moderator IssueCert ---> Sender SessionInit
         // (1) Franking Key (k_f): 2 Scalars
         // (2) Franking Public Key (k_pub): 2 CompressedRistrettos
         // (3) Signature (sig): 1 Signature
-        let register_user_cost = mem::size_of::<Scalar>() * 2
+        let issue_cert_cost = mem::size_of::<Scalar>() * 2
             + mem::size_of::<CompressedRistretto>() * 2
             + mem::size_of::<Signature>();
-        println!(
-            "Register User Communication Cost: {} (bytes)",
-            register_user_cost
-        );
+        println!("Issue Cert Communication Cost: {} (bytes)", issue_cert_cost);
     }
 
     // Sender Initializes Session

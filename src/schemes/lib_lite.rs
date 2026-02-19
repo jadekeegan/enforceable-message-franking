@@ -50,8 +50,8 @@ impl Moderator {
         }
     }
 
-    // Register User Function
-    /// Registers a user with the moderator.
+    // Issue Cert Function
+    /// Issues a certificate to a user from the moderator.
     ///
     /// # Arguments
     /// * `sk_M` - Moderator Secret Key
