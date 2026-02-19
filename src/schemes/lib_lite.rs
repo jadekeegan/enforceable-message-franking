@@ -1,5 +1,5 @@
-use crate::toolbox::lib_lite_zkp::*;
 use crate::toolbox::lib_common::*;
+use crate::toolbox::lib_lite_zkp::*;
 use crate::toolbox::lib_mac_ggm as mac;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
@@ -9,7 +9,7 @@ use rand::rngs::OsRng;
 use std::io::Error;
 
 // Structs
-pub struct BasicFrankingData {
+pub struct LiteFrankingData {
     pub r_point: CompressedRistretto, // Ristretto Point R
     pub e_r: CompressedRistretto,     // Ephemeral Ristretto Point E_r
     pub tag: CompressedRistretto,     // MAC Tag t
@@ -184,7 +184,7 @@ impl Client {
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
-    ) -> BasicFrankingData {
+    ) -> LiteFrankingData {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
@@ -201,7 +201,7 @@ impl Client {
         let pi = zk_mac_dlog_prove(&r_point, k_f, r, &tag, m, &h_m, t_msg, ctx);
 
         // Return Franking Data
-        BasicFrankingData {
+        LiteFrankingData {
             r_point,
             e_r,
             tag,
@@ -222,12 +222,12 @@ impl Client {
     /// * `bool` - indicating validity (true) or invalidity (false)
     pub fn verify(
         &self,
-        ad: &BasicFrankingData,
+        ad: &LiteFrankingData,
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
     ) -> Result<CompressedRistretto, Error> {
-        let BasicFrankingData {
+        let LiteFrankingData {
             r_point,
             e_r,
             tag,

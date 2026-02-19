@@ -2,7 +2,7 @@ use criterion::*;
 use federated_franking_impl::schemes::bench_helpers::*;
 use federated_franking_impl::toolbox::lib_common::*;
 
-pub fn bench_basic_accept_session(c: &mut Criterion) {
+pub fn bench_accept_session(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
     let (moderator, _sender, _receiver, _k_f, _r, ctx, sig) =
@@ -17,5 +17,5 @@ pub fn bench_basic_accept_session(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_basic_accept_session);
+criterion_group!(benches, bench_accept_session);
 criterion_main!(benches);

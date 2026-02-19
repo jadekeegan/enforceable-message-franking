@@ -185,7 +185,7 @@ pub fn test_lite(msg_size: usize, print_costs: bool) {
 
     println!();
     println!(
-        "======================== Completed Testing Basic Scheme with Message of Size {} ====================",
+        "======================== Completed Testing EMF-Lite Scheme with Message of Size {} ====================",
         msg_size
     );
     println!();
@@ -335,7 +335,7 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
 
     println!();
     println!(
-        "======================== Completed Testing ElGamal Scheme with Message of Size {} ====================",
+        "======================== Completed Testing EMF Scheme with Message of Size {} ====================",
         msg_size
     );
     println!();

@@ -1,6 +1,6 @@
-use crate::schemes::lib_lite as lite;
 use crate::schemes::lib_emf as emf;
 use crate::schemes::lib_emf::ModeratorPublicKey;
+use crate::schemes::lib_lite as lite;
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_emf_enc as emf_enc;
 use crate::toolbox::lib_mac_ggm as mac_ggm;
@@ -102,7 +102,7 @@ pub fn test_lite_init_messages_with_franking_data(
     r: &Scalar,
     k_pub: &PublicFrankingKey,
     t_msg: u64,
-) -> (Vec<String>, Vec<lite::BasicFrankingData>) {
+) -> (Vec<String>, Vec<lite::LiteFrankingData>) {
     let ms = test_init_messages();
 
     let ctx = SessionContext {
@@ -112,7 +112,7 @@ pub fn test_lite_init_messages_with_franking_data(
     };
 
     // Generate Franking Data for Each Message
-    let mut fds: Vec<lite::BasicFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut fds: Vec<lite::LiteFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
         fds.push(sender.frank(pk_r, k_f, r, m.as_bytes(), t_msg, &ctx));
     }
@@ -198,7 +198,7 @@ pub fn test_emf_init_messages_with_franking_data(
     r: &Scalar,
     k_pub: &PublicFrankingKey,
     t_msg: u64,
-) -> (Vec<String>, Vec<emf::ElGamalFrankingData>) {
+) -> (Vec<String>, Vec<emf::EMFFrankingData>) {
     let ms = test_init_messages();
 
     let ctx = SessionContext {
@@ -208,7 +208,7 @@ pub fn test_emf_init_messages_with_franking_data(
     };
 
     // Generate Franking Data for Each Message
-    let mut fds: Vec<emf::ElGamalFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut fds: Vec<emf::EMFFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
         fds.push(sender.frank(pk_m, pk_r, k_f, r, m.as_bytes(), t_msg, &ctx));
     }

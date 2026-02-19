@@ -45,7 +45,7 @@ pub fn zk_mac_dlog_prove(
     k_f: &FrankingKey,
     r: &Scalar,
     r_enc: &Scalar,
-    pk_enc: &ElGamalPublicKey,
+    pk_enc: &EMFPublicKey,
     enc_tag: &ElGamalCiphertext,
     m: &[u8],
     h_m: &Scalar,
@@ -133,7 +133,7 @@ pub fn zk_mac_dlog_prove(
 /// * `bool` - indicating validity (true) or invalidity (false)
 pub fn zk_mac_dlog_verify(
     r_point: &CompressedRistretto,
-    pk_enc: &ElGamalPublicKey,
+    pk_enc: &EMFPublicKey,
     enc_tag: &ElGamalCiphertext,
     m: &[u8],
     t_msg: u64,
@@ -230,7 +230,7 @@ mod test {
     fn test_params() -> (
         FrankingKey,
         Scalar,
-        ElGamalPublicKey,
+        EMFPublicKey,
         CompressedRistretto,
         &'static [u8],
         u64,
@@ -256,7 +256,7 @@ mod test {
 
     fn test_enc_tag(
         k_f: &FrankingKey,
-        pk_enc: &ElGamalPublicKey,
+        pk_enc: &EMFPublicKey,
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,

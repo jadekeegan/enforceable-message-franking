@@ -46,7 +46,7 @@ def collect_benchmark_data(scheme: str, criterion_dir: Path, functions: List[str
     Collect benchmark data for specified functions.
     
     Args:
-        scheme: Name of the scheme (e.g., "basic", "elgamal")
+        scheme: Name of the scheme (e.g., "lite", "emf")
         criterion_dir: Path to the criterion benchmark directory
         functions: List of function names to collect data for
         
@@ -100,7 +100,7 @@ def load_benchmark_data(
     Load benchmark data from Criterion output directory.
     
     Args:
-        scheme: Name of the scheme (e.g., "basic", "elgamal")
+        scheme: Name of the scheme (e.g., "lite", "emf")
         script_path: Path to the calling script (__file__)
         functions: List of function names to collect data for
         
