@@ -2,15 +2,15 @@ use criterion::*;
 use federated_franking_impl::schemes::bench_helpers::*;
 use federated_franking_impl::toolbox::lib_common::*;
 
-pub fn bench_basic_verify(c: &mut Criterion) {
+pub fn bench_lite_moderate(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (_moderator, sender, receiver, k_f, r, ctx, _sig) =
-        test_basic_init_full_session_data(t_expiry);
+    let (moderator, sender, receiver, k_f, r, ctx, _sig) =
+        test_lite_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes with corresponding franking data
     let t_msg = compute_timestamp(0);
-    let (ms, fds) = test_basic_init_messages_with_franking_data(
+    let (ms, fds) = test_lite_init_messages_with_franking_data(
         &sender,
         &receiver.pk,
         &k_f,
@@ -20,18 +20,20 @@ pub fn bench_basic_verify(c: &mut Criterion) {
     );
 
     // Benchmark
-    let mut group = c.benchmark_group("basic/verify");
+    let mut group = c.benchmark_group("lite/moderate");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
-            format!("verify() message of size {}", msg_size),
+            format!("moderate() message of size {}", msg_size),
             msg_size,
             |b, &_msg_size| {
-                b.iter(|| black_box(receiver.verify(&fds[j], ms[j].as_bytes(), t_msg, &ctx)))
+                b.iter(|| {
+                    black_box(moderator.moderate(&k_f, ms[j].as_bytes(), t_msg, &ctx, &fds[j].tag));
+                })
             },
         );
     }
     group.finish();
 }
 
-criterion_group!(benches, bench_basic_verify);
+criterion_group!(benches, bench_lite_moderate);
 criterion_main!(benches);

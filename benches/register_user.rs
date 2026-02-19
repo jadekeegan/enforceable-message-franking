@@ -7,7 +7,7 @@ use federated_franking_impl::toolbox::lib_common::*;
 // since we need the moderator secret key for register_user.
 pub fn bench_basic_register_user(c: &mut Criterion) {
     // Set Up Data
-    let (moderator, client) = test_basic_init_moderator_client();
+    let (moderator, client) = test_lite_init_moderator_client();
     let t_expiry = compute_timestamp(WEEK_OFFSET);
 
     // Benchmark

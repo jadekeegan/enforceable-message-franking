@@ -7,7 +7,7 @@ use federated_franking_impl::toolbox::lib_mac_ggm as mac_ggm;
 pub fn bench_ggm_mac_tag(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (client, k_f, _r, _k_pub) = test_basic_init_client_with_keys(t_expiry);
+    let (client, k_f, _r, _k_pub) = test_lite_init_client_with_keys(t_expiry);
 
     // Generate test messages of various sizes
     let ms = test_init_messages();

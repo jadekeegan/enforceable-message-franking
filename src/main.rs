@@ -24,10 +24,10 @@ macro_rules! status {
 #[command(version, about, long_about = None, arg_required_else_help = true)]
 struct Args {
     #[arg(long, default_value_t = false)]
-    basic: bool,
+    lite: bool,
 
     #[arg(long, default_value_t = false)]
-    elgamal: bool,
+    emf: bool,
 
     #[arg(long, default_value_t = 100)]
     msg_size: usize,
@@ -39,17 +39,17 @@ struct Args {
 fn main() {
     let args = Args::parse();
 
-    if args.basic {
-        test_basic(args.msg_size, args.print_costs);
+    if args.lite {
+        test_lite(args.msg_size, args.print_costs);
     }
 
-    if args.elgamal {
-        test_elgamal(args.msg_size, args.print_costs);
+    if args.emf {
+        test_emf(args.msg_size, args.print_costs);
     }
 }
 
-// Test Basic Scheme
-/// Completes all operations of the basic scheme for a certain message size, testing
+// Test Lite Scheme
+/// Completes all operations of the lite scheme for a certain message size, testing
 /// franking and verification of one message between a sender and receiver.
 ///
 /// # Arguments
@@ -57,9 +57,9 @@ fn main() {
 ///
 /// # Returns
 /// * None
-pub fn test_basic(msg_size: usize, print_costs: bool) {
+pub fn test_lite(msg_size: usize, print_costs: bool) {
     println!(
-        "======================== Started Testing Basic Scheme with Message of Size {} ====================",
+        "======================== Started Testing Lite Scheme with Message of Size {} ====================",
         msg_size
     );
     println!();
@@ -68,7 +68,7 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
     println!("===> Initializing Moderator, Sender, Receiver, and Sender Keys");
     let t_expiry = compute_timestamp(WEEK_OFFSET);
     let (moderator, sender, receiver, k_f, r, ctx, sig) =
-        test_basic_init_full_session_data(t_expiry);
+        test_lite_init_full_session_data(t_expiry);
 
     // Compress ctx for communication
     let compressed_ctx = ctx.compress();
@@ -192,17 +192,17 @@ pub fn test_basic(msg_size: usize, print_costs: bool) {
     println!();
 }
 
-// Test ElGamal Scheme
-/// Completes all operations of the ElGamal scheme for a certain message size, testing
+// Test EMF Scheme
+/// Completes all operations of the EMF scheme for a certain message size, testing
 /// franking and verification of one message between a sender and receiver.
 /// # Arguments
 /// * `msg_size` - Size of each message in bytes.
 ///
 /// # Returns
 /// * None
-pub fn test_elgamal(msg_size: usize, print_costs: bool) {
+pub fn test_emf(msg_size: usize, print_costs: bool) {
     println!(
-        "======================== Started Testing ElGamal Scheme with Message of Size {} ====================",
+        "======================== Started Testing EMF Scheme with Message of Size {} ====================",
         msg_size
     );
     println!();
@@ -210,8 +210,7 @@ pub fn test_elgamal(msg_size: usize, print_costs: bool) {
     // Initialize Session Data (sets up moderator, sender, receiver, and sender keys)
     println!("===> Initializing Moderator, Sender, Receiver, and Sender Keys");
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (moderator, sender, receiver, k_f, r, ctx, sig) =
-        test_elgamal_init_full_session_data(t_expiry);
+    let (moderator, sender, receiver, k_f, r, ctx, sig) = test_emf_init_full_session_data(t_expiry);
 
     // Compress ctx for communication
     let compressed_ctx = ctx.compress();

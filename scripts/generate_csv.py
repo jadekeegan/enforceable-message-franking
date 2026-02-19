@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Format benchmark results for core scheme functions into a CSV file.
-Usage: python scripts/generate_csv.py [--scheme basic|elgamal|all]
+Usage: python scripts/generate_csv.py [--scheme lite|emf|all]
 """
 
 import argparse
@@ -48,11 +48,11 @@ def generate_csv(scheme: str):
 def main():
     """Generate benchmark results CSV file."""
     parser = argparse.ArgumentParser(description='Generate benchmark results CSV file.')
-    parser.add_argument('--scheme', type=str, default='basic', help='Name of the scheme (e.g., "basic", "elgamal")')
+    parser.add_argument('--scheme', type=str, default='lite', help='Name of the scheme (e.g., "lite", "emf")')
     args = parser.parse_args()
 
     if args.scheme == 'all':
-        for scheme in ['basic', 'elgamal']:
+        for scheme in ['lite', 'emf']:
             generate_csv(scheme)
     else:
         generate_csv(args.scheme)

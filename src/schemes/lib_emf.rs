@@ -1,5 +1,7 @@
-use crate::toolbox::lib_basic_zkp::*;
 use crate::toolbox::lib_common::*;
+use crate::toolbox::lib_emf_enc as elgamal;
+use crate::toolbox::lib_emf_enc::{ElGamalCiphertext, ElGamalPublicKey, ElGamalSecretKey};
+use crate::toolbox::lib_emf_zkp::*;
 use crate::toolbox::lib_mac_ggm as mac;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
@@ -8,33 +10,49 @@ use ed25519_dalek::{SigningKey, VerifyingKey};
 use rand::rngs::OsRng;
 use std::io::Error;
 
-// Structs
-pub struct BasicFrankingData {
+// Type Definitions
+pub struct ModeratorSecretKey {
+    sk_sig: SigningKey,
+    sk_dec: ElGamalSecretKey,
+}
+
+pub struct ModeratorPublicKey {
+    pub pk_sig: VerifyingKey,
+    pub pk_enc: ElGamalPublicKey,
+}
+
+pub struct ElGamalFrankingData {
     pub r_point: CompressedRistretto, // Ristretto Point R
     pub e_r: CompressedRistretto,     // Ephemeral Ristretto Point E_r
-    pub tag: CompressedRistretto,     // MAC Tag t
+    pub enc_tag: ElGamalCiphertext,   // Encrypted MAC Tag t
     pub pi: MacOrDlogZKProof,         // ZK Proof of Knowledge of MAC Tag
 }
 
 // Helper Functions
 
 // Moderator Key Generation
-/// Generates a moderator signing and verifying key pair.
+/// Generates a moderator signature and elgamal keypairs.
 ///
 /// # Arguments
 /// * None
 ///
 /// # Returns
-/// * `SigningKey` - Moderator Signing Key
-/// * `VerifyingKey` - Moderator Verifying Key
-pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
-    moderator_sig_keygen()
+/// * `ModeratorSecretKey` - Moderator Signing and Elgamal Decryption Keys
+/// * `ModeratorPublicKey` - Moderator Verifying Key and Elgamal Encryption Key
+pub fn moderator_keygen() -> (ModeratorSecretKey, ModeratorPublicKey) {
+    let (sk_sig, pk_sig) = moderator_sig_keygen();
+    let (sk_dec, pk_enc) = elgamal::keygen();
+
+    (
+        ModeratorSecretKey { sk_sig, sk_dec },
+        ModeratorPublicKey { pk_sig, pk_enc },
+    )
 }
 
 // Moderator Properties
 pub struct Moderator {
-    pub pk: VerifyingKey, // Moderator Public Key
-    sk: SigningKey,       // Moderator Secret Key
+    pub pk: ModeratorPublicKey, // Moderator Public Key
+    sk: ModeratorSecretKey,     // Moderator Secret Key
 }
 
 // Moderator Implementation
@@ -42,12 +60,9 @@ pub struct Moderator {
 impl Moderator {
     // KeyGenMod(1^lambda)
     pub fn new() -> Self {
-        let (signing_key, verifying_key) = moderator_keygen();
+        let (sk, pk) = moderator_keygen();
 
-        Moderator {
-            pk: verifying_key,
-            sk: signing_key,
-        }
+        Moderator { pk, sk }
     }
 
     // Register User Function
@@ -60,7 +75,6 @@ impl Moderator {
     ///
     /// # Returns
     /// * `k_f` - Franking Key
-    /// * `r` - randomness for Pedersen commitment
     /// * `k_pub` - Public Key
     /// * `sig` - Moderator Signature on User Registration
     pub fn issue_cert(
@@ -68,7 +82,7 @@ impl Moderator {
         id: &ClientId,
         t_expiry: u64,
     ) -> (FrankingKey, Scalar, CompressedPublicFrankingKey, Signature) {
-        issue_cert(&self.sk, id, t_expiry)
+        issue_cert(&self.sk.sk_sig, id, t_expiry)
     }
 
     // Moderate Function
@@ -76,11 +90,10 @@ impl Moderator {
     ///
     /// # Arguments
     /// * `k_f` - Franking Key
-    /// * `t_expiry` - Signature Expiry Time
-    /// * `id` - User Identifier
     /// * `m` - Message to be Verified
     /// * `t_msg` - Message Timestamp
-    /// * `tag` - Mac Tag
+    /// * `ctx` - Session Context
+    /// * `enc_tag` - Mac Tag
     ///
     /// # Returns
     /// * `bool` - indicating validity (true) or invalidity (false)
@@ -90,10 +103,11 @@ impl Moderator {
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
-        tag: &CompressedRistretto,
+        enc_tag: &ElGamalCiphertext,
     ) -> bool {
         let is_time_valid = t_msg < ctx.t_expiry;
-        let is_tag_valid = mac::verify(k_f, m, &ctx.id, t_msg, tag);
+        let tag = elgamal::decrypt(&self.sk.sk_dec, enc_tag);
+        let is_tag_valid = mac::verify(k_f, m, &ctx.id, t_msg, &tag);
 
         is_time_valid && is_tag_valid
     }
@@ -133,13 +147,13 @@ impl Client {
     /// * `bool` - indicating success (true) or failure (false)
     pub fn session_init(
         &self,
-        pk_m: &VerifyingKey,
+        pk_m: &ModeratorPublicKey,
         k_f: &FrankingKey,
         r: &Scalar,
         ctx: &CompressedSessionContext,
         sig: &Signature,
     ) -> bool {
-        session_init(pk_m, k_f, r, ctx, sig)
+        session_init(&pk_m.pk_sig, k_f, r, ctx, sig)
     }
 
     // AcceptSession Function
@@ -147,9 +161,7 @@ impl Client {
     ///
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
-    /// * `id` - Sender User Identifier
-    /// * `k_pub` - Sender Franking Public Key
-    /// * `t_expiry` - Signature Expiry Time
+    /// * `ctx` - Session Context
     /// * `sig` - Moderator Signature on Sender User Registration
     ///
     /// # Returns
@@ -168,23 +180,26 @@ impl Client {
     ///
     /// # Arguments
     ///
+    /// * `pk_m` - Moderator Public Key
     /// * `pk_r` - Recipient Public Key (ClientPublicKey)
     /// * `k_f` - Franking Key
     /// * `r` - Random Scalar for Pedersen Commitment
     /// * `m` - Message to be Franked
     /// * `t_msg` - Message Timestamp
+    /// * `ctx` - Session Context
     ///
     /// # Returns
     /// * `FrankData` - contains the Franking AD
     pub fn frank(
         &self,
+        pk_m: &ModeratorPublicKey,
         pk_r: &ClientPublicKey,
         k_f: &FrankingKey,
         r: &Scalar,
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
-    ) -> BasicFrankingData {
+    ) -> ElGamalFrankingData {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
@@ -197,14 +212,28 @@ impl Client {
         // Compute MAC Tag t
         let (tag, h_m) = mac::tag(k_f, m, &ctx.id, t_msg);
 
+        // Encrypt tag using ElGamal
+        let (enc_tag, r_enc) = elgamal::encrypt(&pk_m.pk_enc, &tag);
+
         // Compute proof pi
-        let pi = zk_mac_dlog_prove(&r_point, k_f, r, &tag, m, &h_m, t_msg, ctx);
+        let pi = zk_mac_dlog_prove(
+            &r_point,
+            k_f,
+            r,
+            &r_enc,
+            &pk_m.pk_enc,
+            &enc_tag,
+            m,
+            &h_m,
+            t_msg,
+            ctx,
+        );
 
         // Return Franking Data
-        BasicFrankingData {
+        ElGamalFrankingData {
             r_point,
             e_r,
-            tag,
+            enc_tag,
             pi,
         }
     }
@@ -213,8 +242,9 @@ impl Client {
     /// Verifies that a message has been properly franked.
     ///
     /// # Arguments
-    /// * `m` - Message to be Verified
+    /// * `pk_m` - Moderator Public Key
     /// * `ad` - Franking Data
+    /// * `m` - Message to be Verified
     /// * `t_msg` - Message Timestamp
     /// * `ctx` - Session Context
     ///
@@ -222,15 +252,16 @@ impl Client {
     /// * `bool` - indicating validity (true) or invalidity (false)
     pub fn verify(
         &self,
-        ad: &BasicFrankingData,
+        pk_m: &ModeratorPublicKey,
+        ad: &ElGamalFrankingData,
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
-    ) -> Result<CompressedRistretto, Error> {
-        let BasicFrankingData {
+    ) -> Result<ElGamalCiphertext, Error> {
+        let ElGamalFrankingData {
             r_point,
             e_r,
-            tag,
+            enc_tag,
             pi,
         } = ad;
 
@@ -240,10 +271,10 @@ impl Client {
         let recomputed_r = (self.sk * decompressed_e_r).compress();
         let is_r_valid = recomputed_r == *r_point;
         let is_t_valid = t_msg < ctx.t_expiry;
-        let is_pi_valid = zk_mac_dlog_verify(r_point, tag, m, t_msg, ctx, pi);
+        let is_pi_valid = zk_mac_dlog_verify(r_point, &pk_m.pk_enc, enc_tag, m, t_msg, ctx, pi);
 
         if is_r_valid && is_t_valid && is_pi_valid {
-            Ok(*tag)
+            Ok(*enc_tag)
         } else {
             Err(Error::new(
                 std::io::ErrorKind::InvalidData,
@@ -267,6 +298,7 @@ mod test {
 
         let t_expiry = compute_timestamp(WEEK_OFFSET);
         let (_k_f, _r, k_pub, sig) = moderator.issue_cert(&client.id, t_expiry);
+
         let ctx = SessionContext {
             id: client.id,
             k_pub: k_pub.decompress().unwrap(),
@@ -275,7 +307,7 @@ mod test {
 
         let data: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(&ctx);
 
-        assert!(moderator.pk.verify(&data, &sig).is_ok());
+        assert!(moderator.pk.pk_sig.verify(&data, &sig).is_ok());
     }
 
     #[test]
@@ -289,8 +321,9 @@ mod test {
         let (x0, x1) = k_f;
 
         assert_eq!(
-            (x0 * (*G0)) + (x1 * (*G1)) + (r * (*H)),
-            k_pub.decompress().unwrap()
+            compute_pedersen_multicomm(&x0, &x1, &r),
+            k_pub.decompress().unwrap(),
+            "Franking key does not match public key"
         );
     }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Format benchmark results for the core scheme functions into a table.
-Usage: python scripts/generate_table.py [--scheme basic|elgamal|all]
+Usage: python scripts/generate_table.py [--scheme lite|emf|all]
 """
 
 import argparse
@@ -58,11 +58,11 @@ def generate_table(scheme: str):
 def main():
     """Generate benchmark results table."""
     parser = argparse.ArgumentParser(description='Generate benchmark results table.')
-    parser.add_argument('--scheme', type=str, default='basic', help='Name of the scheme (e.g., "basic", "elgamal")')
+    parser.add_argument('--scheme', type=str, default='lite', help='Name of the scheme (e.g., "lite", "emf")')
     args = parser.parse_args()
 
     if (args.scheme == 'all'):
-        for scheme in ['basic', 'elgamal']:
+        for scheme in ['lite', 'emf']:
             print(f"\n===> Scheme: {scheme.upper()}\n")
             generate_table(scheme)
     else:

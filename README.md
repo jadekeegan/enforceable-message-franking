@@ -1,4 +1,4 @@
-# Federated Franking Implementation
+# Enforceable Message Franking Implementation
 
 ## Running Benchmarks
 
