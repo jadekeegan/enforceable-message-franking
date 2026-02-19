@@ -2,17 +2,27 @@
 
 cargo clean
 
-echo "\n\nBuilding All Packages!\n\n"
+echo ""
+echo "Building All Packages!"
+echo ""
 cargo build
 
-echo "\n\nRunning Benchmarks for Lite Scheme!\n\n"
+echo ""
+echo "Running Benchmarks for Lite Scheme!"
+echo ""
 cargo bench --bench lite_frank --bench lite_verify --bench lite_moderate
 
-echo "\n\nRunning Benchmarks for EMF Scheme!\n\n"
+echo ""
+echo "Running Benchmarks for EMF Scheme!"
+echo ""
 cargo bench --bench emf_frank --bench emf_verify --bench emf_moderate
 
-echo "\n\nGenerating Benchmark Tables!\n\n"
+echo ""
+echo "Generating Benchmark Tables!"
+echo ""
 python3 scripts/generate_table.py --scheme all
 
-echo "\n\nRunning Schemes and Reporting Communication Costs!\n\n"
+echo ""
+echo "Running Schemes and Reporting Communication Costs!"
+echo ""
 cargo run -- --msg-size 100 --lite --emf --print-costs
