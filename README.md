@@ -86,7 +86,7 @@ Criterion also generates HTML reports of all benchmarks. To view these, you run 
 
 ### Benchmark Results:
 
-Below are our results on an 11th Gen Intel i7 processor @ 3.6 GHz.
+Below are our results on an 11th Gen Intel i7 processor @ 3.6 GHz in microseconds.
 
 | Scheme   | Frank  | Verify | Moderate |
 | -------- | ------ | ------ | -------- |
