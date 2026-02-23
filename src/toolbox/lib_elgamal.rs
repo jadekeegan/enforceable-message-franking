@@ -3,15 +3,15 @@ use rand::rngs::OsRng;
 
 // Type Definitions
 pub type ElGamalCiphertext = (CompressedRistretto, CompressedRistretto);
-pub type ElGamalSecretKey = Scalar;
-pub type ElGamalPublicKey = RistrettoPoint;
+pub type EMFSecretKey = Scalar;
+pub type EMFPublicKey = RistrettoPoint;
 
 // Elgamal Keygen
 /// Generate an ElGamal key pair.
 ///
 /// # Returns
 /// * `(sk, pk)` - Secret key and public key
-pub fn keygen() -> (ElGamalSecretKey, ElGamalPublicKey) {
+pub fn keygen() -> (EMFSecretKey, EMFPublicKey) {
     let sk = Scalar::random(&mut OsRng);
     let pk = RistrettoPoint::mul_base(&sk);
     (sk, pk)
@@ -27,7 +27,7 @@ pub fn keygen() -> (ElGamalSecretKey, ElGamalPublicKey) {
 /// # Returns
 /// * `(c1, c2)` - ElGamal ciphertext
 /// * `r` - Random scalar used in encryption
-pub fn encrypt(pk: &ElGamalPublicKey, point: &CompressedRistretto) -> (ElGamalCiphertext, Scalar) {
+pub fn encrypt(pk: &EMFPublicKey, point: &CompressedRistretto) -> (ElGamalCiphertext, Scalar) {
     let r = Scalar::random(&mut OsRng);
 
     // c1 = g^r
@@ -47,7 +47,7 @@ pub fn encrypt(pk: &ElGamalPublicKey, point: &CompressedRistretto) -> (ElGamalCi
 ///
 /// # Returns
 /// * Decrypted RistrettoPoint
-pub fn decrypt(sk: &ElGamalSecretKey, ct: &ElGamalCiphertext) -> CompressedRistretto {
+pub fn decrypt(sk: &EMFSecretKey, ct: &ElGamalCiphertext) -> CompressedRistretto {
     let tag = ct.1.decompress().unwrap() - sk * ct.0.decompress().unwrap();
     tag.compress()
 }

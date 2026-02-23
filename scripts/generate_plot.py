@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Plot benchmark results for core scheme functions.
-Usage: python scripts/generate_plot.py [--scheme basic|elgamal|all]
+Usage: python scripts/generate_plot.py [--scheme lite|emf|all]
 """
 
 import argparse
@@ -51,11 +51,11 @@ def generate_plot(scheme: str):
 def main():
     """Generate benchmark performance plot."""
     parser = argparse.ArgumentParser(description="Generate benchmark performance plot.")
-    parser.add_argument('--scheme', type=str, default='basic', help='Name of the scheme (e.g., "basic", "elgamal")')
+    parser.add_argument('--scheme', type=str, default='lite', help='Name of the scheme (e.g., "lite", "emf")')
     args = parser.parse_args()
 
     if args.scheme == 'all':
-        for scheme in ['basic', 'elgamal']:
+        for scheme in ['lite', 'emf']:
             generate_plot(scheme)
     else:
         generate_plot(args.scheme)

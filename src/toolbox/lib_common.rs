@@ -1,10 +1,14 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::LazyLock,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use curve25519_dalek::{RistrettoPoint, Scalar, ristretto::CompressedRistretto};
 use ed25519_dalek::{Signature, SigningKey, VerifyingKey};
 
 use rand::RngCore;
 use rand::rngs::OsRng;
+use sha2::Sha512;
 use signature::{Signer, Verifier};
 
 use crate::toolbox::lib_mac_ggm as mac;
@@ -17,28 +21,34 @@ pub const HOUR_OFFSET: u64 = 3_600; // 1 hour in seconds
 pub const DAY_OFFSET: u64 = 86_400; // 1 day in seconds
 pub const WEEK_OFFSET: u64 = 604_800; // 1 week in seconds
 
+// Generators for Pedersen Multi-Commitment
+pub static G0: LazyLock<RistrettoPoint> =
+    LazyLock::new(|| RistrettoPoint::hash_from_bytes::<Sha512>(b"base g0"));
+pub static G1: LazyLock<RistrettoPoint> =
+    LazyLock::new(|| RistrettoPoint::hash_from_bytes::<Sha512>(b"base g1"));
+pub static H: LazyLock<RistrettoPoint> =
+    LazyLock::new(|| RistrettoPoint::hash_from_bytes::<Sha512>(b"base h"));
+
 // Type Definitions
 pub type FrankingKey = (Scalar, Scalar);
-pub type FrankingPublicKey = (RistrettoPoint, RistrettoPoint);
+pub type PublicFrankingKey = RistrettoPoint;
 pub type ClientSecretKey = Scalar;
 pub type ClientPublicKey = RistrettoPoint;
 pub type ClientId = [u8; 32];
 
 // Compressed version for communication
-pub type CompressedFrankingPublicKey = (CompressedRistretto, CompressedRistretto);
+pub type CompressedPublicFrankingKey = CompressedRistretto;
 
 pub struct SessionContext {
     pub id: ClientId,             // User Identifier
-    pub k_pub: FrankingPublicKey, // Franking Public Key (g0, g1)
+    pub k_pub: PublicFrankingKey, // Franking Public Key (g0, g1)
     pub t_expiry: u64,            // Signature Expiry Time
 }
 impl SessionContext {
     pub fn compress(&self) -> CompressedSessionContext {
-        let compressed_k_pub = (self.k_pub.0.compress(), self.k_pub.1.compress());
-
         CompressedSessionContext {
             id: self.id,
-            k_pub: compressed_k_pub,
+            k_pub: self.k_pub.compress(),
             t_expiry: self.t_expiry,
         }
     }
@@ -46,20 +56,14 @@ impl SessionContext {
 
 pub struct CompressedSessionContext {
     pub id: ClientId,                       // User Identifier
-    pub k_pub: CompressedFrankingPublicKey, // Compressed Franking Public Key (g0, g1)
+    pub k_pub: CompressedPublicFrankingKey, // Compressed Franking Public Key (g0, g1)
     pub t_expiry: u64,                      // Signature Expiry Time
 }
-
 impl CompressedSessionContext {
     pub fn decompress(&self) -> SessionContext {
-        let decompressed_k_pub = (
-            self.k_pub.0.decompress().unwrap(),
-            self.k_pub.1.decompress().unwrap(),
-        );
-
         SessionContext {
             id: self.id,
-            k_pub: decompressed_k_pub,
+            k_pub: self.k_pub.decompress().unwrap(),
             t_expiry: self.t_expiry,
         }
     }
@@ -114,21 +118,37 @@ pub fn user_keygen() -> (ClientSecretKey, ClientPublicKey) {
     (sk, pk)
 }
 
+// Compute Pedersen Multi-Commitment
+/// Computes the Pedersen multi-commitment for the given scalars and randomness.
+///
+/// # Arguments
+/// * `s0` - Scalar to be multiplied with generator G0
+/// * `s1` - Scalar to be multiplied with generator G1
+/// * `r` - Randomness for the Pedersen commitment
+///
+/// # Returns
+/// * `RistrettoPoint` - The computed Pedersen multi-commitment (G0^s0 * G1^s1 * H^r)
+pub fn compute_pedersen_multicomm(s0: &Scalar, s1: &Scalar, r: &Scalar) -> RistrettoPoint {
+    let g0 = s0 * (*G0);
+    let g1 = s1 * (*G1);
+    let h = r * (*H);
+
+    g0 + g1 + h
+}
+
 // Compute Public Key from Franking Key
 /// Computes the public key corresponding to the given franking key.
 ///
 /// # Arguments
 /// * `k_f` - Franking Key (x0, x1)
+/// * `r` - Random Scalar for Pedersen Commitment
 ///
 /// # Returns
-/// * `FrankingPublicKey` - Public Key (g0, g1)
-pub fn compute_public_key(k_f: &FrankingKey) -> FrankingPublicKey {
+/// * `PublicFrankingKey` - Pedersen Multi-Commitment (g_0^x0 * g_1^x1 * h^r)
+pub fn compute_public_key(k_f: &FrankingKey, r: &Scalar) -> PublicFrankingKey {
     let (x0, x1) = k_f;
 
-    let g0 = RistrettoPoint::mul_base(x0);
-    let g1 = RistrettoPoint::mul_base(x1);
-
-    (g0, g1)
+    compute_pedersen_multicomm(x0, x1, r)
 }
 
 // Generate User ID
@@ -146,8 +166,8 @@ pub fn generate_user_id() -> ClientId {
     id
 }
 
-// Register User
-/// Registers a user with the moderator.
+// Issue Cert Function
+/// Issues a certificate to a user from the moderator.
 ///
 /// # Arguments
 /// * `sk_m` - Moderator Secret Key
@@ -156,19 +176,20 @@ pub fn generate_user_id() -> ClientId {
 ///
 /// # Returns
 /// * `k_f` - Franking Key
-/// * `k_pub` - Public Key
+/// * `r` - Randomness for Pedersen commitment
+/// * `compressed_k_pub` - CompressedPublicFrankingKey for communication
 /// * `sig` - Moderator Signature on User Registration
-pub fn register_user(
+pub fn issue_cert(
     sk_m: &SigningKey,
     id: &ClientId,
     t_expiry: u64,
-) -> (FrankingKey, CompressedFrankingPublicKey, Signature) {
+) -> (FrankingKey, Scalar, CompressedPublicFrankingKey, Signature) {
     // Franking Key Generation (x0, x1)
     let k_f = mac::keygen();
 
     // Public Key Generation (g^x0, g^x1)
-    let k_pub = compute_public_key(&k_f);
-    let compressed_k_pub = (k_pub.0.compress(), k_pub.1.compress());
+    let r = Scalar::random(&mut OsRng); // Random scalar for Pedersen commitment
+    let k_pub = compute_public_key(&k_f, &r);
 
     // Construct session context for serialization
     let ctx = SessionContext {
@@ -183,18 +204,18 @@ pub fn register_user(
     // Signature over registration data
     let sig = sk_m.sign(&msg);
 
-    (k_f, compressed_k_pub, sig)
+    let compressed_k_pub = k_pub.compress();
+    (k_f, r, compressed_k_pub, sig)
 }
 
 // Session Init
 /// Initializes a session for a client.
 ///
 /// # Arguments
-/// * `id` - User Identifier
 /// * `pk_m` - Moderator Verifying Key
 /// * `k_f` - Franking Key
-/// * `k_pub` - Public Key
-/// * `t_expiry` - Signature Expiry Time
+/// * `r` - Random Scalar for Pedersen Commitment
+/// * `ctx` - Session Context
 /// * `sig` - Moderator Signature on User Registration
 ///
 /// # Returns
@@ -202,13 +223,14 @@ pub fn register_user(
 pub fn session_init(
     pk_m: &VerifyingKey,
     k_f: &FrankingKey,
+    r: &Scalar,
     ctx: &CompressedSessionContext,
     sig: &Signature,
 ) -> bool {
     let decompressed_ctx = ctx.decompress();
 
     // Verify FrankingKey and PublicKey
-    let computed_k_pub = compute_public_key(k_f);
+    let computed_k_pub = compute_public_key(k_f, r);
     let is_k_pub_valid = decompressed_ctx.k_pub == computed_k_pub;
 
     // Serialize message registration data and verify signature
@@ -258,12 +280,10 @@ pub fn serialize_registration(ctx: &SessionContext) -> [u8; REGISTRATION_SERIALI
     // Copy id into msg (no serialization needed as it's already [u8; 32])
     msg[..32].copy_from_slice(&ctx.id);
     // Serialize g0 and g1 and copy into msg
-    let (g0, g1) = &ctx.k_pub;
-    msg[32..64].copy_from_slice(g0.compress().as_bytes());
-    msg[64..96].copy_from_slice(g1.compress().as_bytes());
+    msg[32..64].copy_from_slice(ctx.k_pub.compress().as_bytes());
 
     // Serialize t_expiry and copy into msg
-    msg[96..104].copy_from_slice(&ctx.t_expiry.to_le_bytes());
+    msg[64..72].copy_from_slice(&ctx.t_expiry.to_le_bytes());
 
     msg
 }
@@ -273,17 +293,12 @@ pub fn serialize_registration(ctx: &SessionContext) -> [u8; REGISTRATION_SERIALI
 mod tests {
     use super::*;
 
-    fn test_session_context() -> (RistrettoPoint, RistrettoPoint, SessionContext) {
-        let g0 = RistrettoPoint::default();
-        let g1 = RistrettoPoint::default();
-
-        let ctx = SessionContext {
+    fn test_session_context() -> SessionContext {
+        SessionContext {
             id: [0u8; 32],
-            k_pub: (g0, g1),
+            k_pub: RistrettoPoint::default(),
             t_expiry: 1_000_000u64,
-        };
-
-        (g0, g1, ctx)
+        }
     }
 
     #[test]
@@ -339,18 +354,10 @@ mod tests {
         let x1 = Scalar::ONE + Scalar::ONE;
 
         let k_f = (x0, x1);
-        let (g0, g1) = compute_public_key(&k_f);
+        let r = Scalar::random(&mut OsRng);
+        let k_pub = compute_public_key(&k_f, &r);
 
-        assert_eq!(
-            g0,
-            RistrettoPoint::mul_base(&x0),
-            "Computed g0 is incorrect"
-        );
-        assert_eq!(
-            g1,
-            RistrettoPoint::mul_base(&x1),
-            "Computed g1 is incorrect"
-        );
+        assert_eq!(k_pub, (x0 * (*G0)) + (x1 * (*G1)) + (r * (*H)));
     }
 
     #[test]
@@ -363,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_serialize_registration_length() {
-        let (_g0, _g1, ctx) = test_session_context();
+        let ctx = test_session_context();
         let serialized = serialize_registration(&ctx);
 
         assert_eq!(
@@ -375,7 +382,7 @@ mod tests {
 
     #[test]
     fn test_serialize_registration_is_deterministic() {
-        let (_g0, _g1, ctx) = test_session_context();
+        let ctx = test_session_context();
 
         let serialized1 = serialize_registration(&ctx);
         let serialized2 = serialize_registration(&ctx);
@@ -388,23 +395,18 @@ mod tests {
 
     #[test]
     fn test_serialize_registration_correct_contents() {
-        let (g0, g1, ctx) = test_session_context();
+        let ctx = test_session_context();
 
         let serialized = serialize_registration(&ctx);
 
         assert_eq!(&serialized[..32], &ctx.id, "Serialized id is incorrect");
         assert_eq!(
             &serialized[32..64],
-            g0.compress().as_bytes(),
-            "Serialized g0 is incorrect"
+            ctx.k_pub.compress().as_bytes(),
+            "Serialized k_pub is incorrect"
         );
         assert_eq!(
-            &serialized[64..96],
-            g1.compress().as_bytes(),
-            "Serialized g1 is incorrect"
-        );
-        assert_eq!(
-            &serialized[96..104],
+            &serialized[64..72],
             &ctx.t_expiry.to_le_bytes(),
             "Serialized t_expiry is incorrect"
         );

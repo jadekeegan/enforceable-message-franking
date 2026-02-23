@@ -1,22 +1,28 @@
 use criterion::*;
 
-use federated_franking_impl::schemes::bench_helpers::*;
-use federated_franking_impl::toolbox::lib_basic_zkp as zkp;
-use federated_franking_impl::toolbox::lib_common::*;
+use enforceable_message_franking::schemes::bench_helpers::*;
+use enforceable_message_franking::toolbox::lib_common::*;
+use enforceable_message_franking::toolbox::lib_lite_zkp as zkp;
 
-pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
+pub fn bench_lite_zk_mac_dlog_verify(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (_moderator, sender, receiver, k_f, ctx, _sig) =
-        test_basic_init_full_session_data(t_expiry);
+    let (_moderator, sender, receiver, k_f, r, ctx, _sig) =
+        test_lite_init_full_session_data(t_expiry);
 
     // Generate test messages of various sizes with franking data and proofs
     let t_msg = compute_timestamp(0);
-    let (ms, fds) =
-        test_basic_init_messages_with_franking_data(&sender, &receiver.pk, &k_f, &ctx.k_pub, t_msg);
+    let (ms, fds) = test_lite_init_messages_with_franking_data(
+        &sender,
+        &receiver.pk,
+        &k_f,
+        &r,
+        &ctx.k_pub,
+        t_msg,
+    );
 
     // Benchmark
-    let mut group = c.benchmark_group("basic/zk");
+    let mut group = c.benchmark_group("lite/zk");
     for (j, msg_size) in MSG_SIZE_SCALE.iter().enumerate() {
         group.bench_with_input(
             format!("zk_mac_dlog_verify() message of size {}", msg_size),
@@ -38,5 +44,5 @@ pub fn bench_basic_zk_mac_dlog_verify(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_basic_zk_mac_dlog_verify);
+criterion_group!(benches, bench_lite_zk_mac_dlog_verify);
 criterion_main!(benches);

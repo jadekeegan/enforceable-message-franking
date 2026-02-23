@@ -1,6 +1,6 @@
 use criterion::*;
 
-use federated_franking_impl::toolbox::lib_mac_ggm as mac_ggm;
+use enforceable_message_franking::toolbox::lib_mac_ggm as mac_ggm;
 
 pub fn bench_ggm_mac_keygen(c: &mut Criterion) {
     // Benchmark

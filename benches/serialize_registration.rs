@@ -1,11 +1,11 @@
 use criterion::*;
-use federated_franking_impl::schemes::bench_helpers::*;
-use federated_franking_impl::toolbox::lib_common::*;
+use enforceable_message_franking::schemes::bench_helpers::*;
+use enforceable_message_franking::toolbox::lib_common::*;
 
 pub fn bench_serialize_registration(c: &mut Criterion) {
     // Set Up Session Data
     let t_expiry = compute_timestamp(WEEK_OFFSET);
-    let (sender, _k_f, k_pub) = test_basic_init_client_with_keys(t_expiry);
+    let (sender, _k_f, _r, k_pub) = test_lite_init_client_with_keys(t_expiry);
 
     let ctx = SessionContext {
         id: sender.id,

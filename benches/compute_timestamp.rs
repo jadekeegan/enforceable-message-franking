@@ -1,5 +1,5 @@
 use criterion::*;
-use federated_franking_impl::toolbox::lib_common::*;
+use enforceable_message_franking::toolbox::lib_common::*;
 
 pub fn bench_compute_timestamp(c: &mut Criterion) {
     let mut group = c.benchmark_group("common");

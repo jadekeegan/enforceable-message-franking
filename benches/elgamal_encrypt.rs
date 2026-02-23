@@ -1,6 +1,6 @@
 use criterion::*;
 use curve25519_dalek::RistrettoPoint;
-use federated_franking_impl::toolbox::lib_elgamal_enc as elgamal;
+use enforceable_message_franking::toolbox::lib_elgamal as elgamal;
 use rand::rngs::OsRng;
 
 pub fn bench_elgamal_encrypt(c: &mut Criterion) {
@@ -9,7 +9,7 @@ pub fn bench_elgamal_encrypt(c: &mut Criterion) {
     let point = RistrettoPoint::random(&mut OsRng).compress();
 
     // Benchmark
-    let mut group = c.benchmark_group("elgamal_enc");
+    let mut group = c.benchmark_group("elgamal");
     group.bench_function("encrypt()", |b| {
         b.iter(|| black_box(elgamal::encrypt(&pk, &point)))
     });

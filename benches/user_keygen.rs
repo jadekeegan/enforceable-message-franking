@@ -1,5 +1,5 @@
 use criterion::*;
-use federated_franking_impl::toolbox::lib_common::user_keygen;
+use enforceable_message_franking::toolbox::lib_common::user_keygen;
 
 pub fn bench_user_keygen(c: &mut Criterion) {
     let mut group = c.benchmark_group("common");

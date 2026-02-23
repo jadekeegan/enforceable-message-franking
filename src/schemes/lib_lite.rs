@@ -1,5 +1,5 @@
-use crate::toolbox::lib_basic_zkp::*;
 use crate::toolbox::lib_common::*;
+use crate::toolbox::lib_lite_zkp::*;
 use crate::toolbox::lib_mac_ggm as mac;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
@@ -9,7 +9,7 @@ use rand::rngs::OsRng;
 use std::io::Error;
 
 // Structs
-pub struct BasicFrankingData {
+pub struct LiteFrankingData {
     pub r_point: CompressedRistretto, // Ristretto Point R
     pub e_r: CompressedRistretto,     // Ephemeral Ristretto Point E_r
     pub tag: CompressedRistretto,     // MAC Tag t
@@ -50,8 +50,8 @@ impl Moderator {
         }
     }
 
-    // Register User Function
-    /// Registers a user with the moderator.
+    // Issue Cert Function
+    /// Issues a certificate to a user from the moderator.
     ///
     /// # Arguments
     /// * `sk_M` - Moderator Secret Key
@@ -60,14 +60,15 @@ impl Moderator {
     ///
     /// # Returns
     /// * `k_f` - Franking Key
+    /// * `r` - randomness for Pedersen commitment
     /// * `k_pub` - Public Key
     /// * `sig` - Moderator Signature on User Registration
-    pub fn register_user(
+    pub fn issue_cert(
         &self,
         id: &ClientId,
         t_expiry: u64,
-    ) -> (FrankingKey, CompressedFrankingPublicKey, Signature) {
-        register_user(&self.sk, id, t_expiry)
+    ) -> (FrankingKey, Scalar, CompressedPublicFrankingKey, Signature) {
+        issue_cert(&self.sk, id, t_expiry)
     }
 
     // Moderate Function
@@ -124,6 +125,7 @@ impl Client {
     /// # Arguments
     /// * `pk_m` - Moderator Public Key
     /// * `k_f` - Franking Key
+    /// * `r` - Random Scalar for Pedersen Commitment
     /// * `ctx` - Session Context
     /// * `sig` - Moderator Signature on User Registration
     ///
@@ -133,10 +135,11 @@ impl Client {
         &self,
         pk_m: &VerifyingKey,
         k_f: &FrankingKey,
+        r: &Scalar,
         ctx: &CompressedSessionContext,
         sig: &Signature,
     ) -> bool {
-        session_init(pk_m, k_f, ctx, sig)
+        session_init(pk_m, k_f, r, ctx, sig)
     }
 
     // AcceptSession Function
@@ -167,6 +170,7 @@ impl Client {
     ///
     /// * `pk_r` - Recipient Public Key (ClientPublicKey)
     /// * `k_f` - Franking Key
+    /// * `r` - Random Scalar for Pedersen Commitment
     /// * `m` - Message to be Franked
     /// * `t_msg` - Message Timestamp
     ///
@@ -176,28 +180,29 @@ impl Client {
         &self,
         pk_r: &ClientPublicKey,
         k_f: &FrankingKey,
+        r: &Scalar,
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
-    ) -> BasicFrankingData {
+    ) -> LiteFrankingData {
         // Generate Random Scalar Alpha
         let alpha = Scalar::random(&mut OsRng);
 
         // Compute R (pk_r)^alpha
-        let r = (alpha * pk_r).compress();
+        let r_point = (alpha * pk_r).compress();
 
         // Compute E_r = g^alpha
         let e_r = RistrettoPoint::mul_base(&alpha).compress();
 
         // Compute MAC Tag t
-        let tag = mac::tag(k_f, m, &ctx.id, t_msg);
+        let (tag, h_m) = mac::tag(k_f, m, &ctx.id, t_msg);
 
         // Compute proof pi
-        let pi = zk_mac_dlog_prove(&r, k_f, &tag, m, t_msg, ctx);
+        let pi = zk_mac_dlog_prove(&r_point, k_f, r, &tag, m, &h_m, t_msg, ctx);
 
         // Return Franking Data
-        BasicFrankingData {
-            r_point: r,
+        LiteFrankingData {
+            r_point,
             e_r,
             tag,
             pi,
@@ -217,12 +222,12 @@ impl Client {
     /// * `bool` - indicating validity (true) or invalidity (false)
     pub fn verify(
         &self,
-        ad: &BasicFrankingData,
+        ad: &LiteFrankingData,
         m: &[u8],
         t_msg: u64,
         ctx: &SessionContext,
     ) -> Result<CompressedRistretto, Error> {
-        let BasicFrankingData {
+        let LiteFrankingData {
             r_point,
             e_r,
             tag,
@@ -256,15 +261,15 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_register_user_generates_valid_sig() {
+    fn test_issue_cert_generates_valid_sig() {
         let moderator = Moderator::new();
         let client = Client::new();
 
         let t_expiry = compute_timestamp(WEEK_OFFSET);
-        let (_k_f, k_pub, sig) = moderator.register_user(&client.id, t_expiry);
+        let (_k_f, _r, k_pub, sig) = moderator.issue_cert(&client.id, t_expiry);
         let ctx = SessionContext {
             id: client.id,
-            k_pub: (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap()),
+            k_pub: k_pub.decompress().unwrap(),
             t_expiry,
         };
 
@@ -274,17 +279,18 @@ mod test {
     }
 
     #[test]
-    fn test_register_user_generates_valid_keys() {
+    fn test_issue_cert_generates_valid_keys() {
         let moderator = Moderator::new();
         let client = Client::new();
 
         let t_expiry = compute_timestamp(WEEK_OFFSET);
-        let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
+        let (k_f, r, k_pub, _sig) = moderator.issue_cert(&client.id, t_expiry);
 
         let (x0, x1) = k_f;
-        let (g0, g1) = (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap());
 
-        assert!(RistrettoPoint::mul_base(&x0) == g0);
-        assert!(RistrettoPoint::mul_base(&x1) == g1);
+        assert_eq!(
+            (x0 * (*G0)) + (x1 * (*G1)) + (r * (*H)),
+            k_pub.decompress().unwrap()
+        );
     }
 }

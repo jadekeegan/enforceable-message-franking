@@ -56,7 +56,13 @@ pub fn hash_context(m: &[u8], id: &ClientId, t_msg: u64) -> Scalar {
 ///
 /// # Returns
 /// * `RistrettoPoint` - MAC Tag t
-pub fn tag(k_f: &FrankingKey, m: &[u8], id: &ClientId, t_msg: u64) -> CompressedRistretto {
+/// * `Scalar` - Hash of the message context used in tag computation
+pub fn tag(
+    k_f: &FrankingKey,
+    m: &[u8],
+    id: &ClientId,
+    t_msg: u64,
+) -> (CompressedRistretto, Scalar) {
     // Unpack franking key
     let (x0, x1) = k_f;
 
@@ -66,7 +72,7 @@ pub fn tag(k_f: &FrankingKey, m: &[u8], id: &ClientId, t_msg: u64) -> Compressed
     // g^(x0 + x1 * H(m))
     let exp = *x0 + (*x1 * h_m);
 
-    RistrettoPoint::mul_base(&exp).compress()
+    (RistrettoPoint::mul_base(&exp).compress(), h_m)
 }
 
 // Mac Tag Verification
@@ -89,7 +95,7 @@ pub fn verify(
     tag: &CompressedRistretto,
 ) -> bool {
     // Compute expected tag
-    let expected = self::tag(k_f, m, id, t_msg);
+    let (expected, _h_m) = self::tag(k_f, m, id, t_msg);
 
     // Check if expected tag matches provided tag
     expected == *tag
@@ -149,7 +155,7 @@ mod tests {
     fn test_mac_tag_is_correct() {
         let (k_f, id, t_msg, m) = test_params();
 
-        let tag = tag(&k_f, m, &id, t_msg);
+        let (tag, _h_m) = tag(&k_f, m, &id, t_msg);
         let expected_exp = k_f.0 + (k_f.1 * hash_context(m, &id, t_msg));
         let expected_tag = RistrettoPoint::mul_base(&expected_exp).compress();
 
@@ -182,7 +188,7 @@ mod tests {
     fn test_mac_verify_correctness() {
         let (k_f, id, t_msg, m) = test_params();
 
-        let tag = tag(&k_f, m, &id, t_msg);
+        let (tag, _h_m) = tag(&k_f, m, &id, t_msg);
         let is_valid = verify(&k_f, m, &id, t_msg, &tag);
 
         assert!(is_valid, "MAC verification failed for valid tag");

@@ -1,5 +1,5 @@
 [package]
-name = "federated_franking_impl"
+name = "enforceable_message_franking"
 version = "0.1.0"
 edition = "2024"
 
@@ -29,15 +29,15 @@ getrandom = "0.3"
 ed25519-dalek = {version = "2", features = ["rand_core"]}
 
 [[bench]]
-name = "basic_moderator_keygen"
+name = "lite_moderator_keygen"
 harness = false
 
 [[bench]]
-name = "basic_moderate"
+name = "lite_moderate"
 harness = false
 
 [[bench]]
-name = "register_user"
+name = "issue_cert"
 harness = false
 
 [[bench]]
@@ -49,11 +49,11 @@ name = "accept_session"
 harness = false
 
 [[bench]]
-name = "basic_frank"
+name = "lite_frank"
 harness = false
 
 [[bench]]
-name = "basic_verify"
+name = "lite_verify"
 harness = false
 
 [[bench]]
@@ -77,11 +77,11 @@ name = "serialize_registration"
 harness = false
 
 [[bench]]
-name =  "basic_zk_mac_dlog_prove"
+name =  "lite_zk_mac_dlog_prove"
 harness = false
 
 [[bench]]
-name = "basic_zk_mac_dlog_verify"
+name = "lite_zk_mac_dlog_verify"
 harness = false
 
 [[bench]]
@@ -101,25 +101,25 @@ name = "mac_ggm_verify"
 harness = false
 
 [[bench]]
-name = "elgamal_enc_keygen"
+name = "elgamal_keygen"
 harness = false
 
 [[bench]]
-name = "elgamal_enc_encrypt"
+name = "elgamal_encrypt"
 harness = false
 
 [[bench]]
-name = "elgamal_enc_decrypt"
+name = "elgamal_decrypt"
 harness = false
 
 [[bench]]
-name = "elgamal_frank"
+name = "emf_frank"
 harness = false
 
 [[bench]]
-name = "elgamal_moderate"
+name = "emf_moderate"
 harness = false
 
 [[bench]]
-name = "elgamal_verify"
+name = "emf_verify"
 harness = false

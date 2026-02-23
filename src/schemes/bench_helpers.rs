@@ -1,63 +1,65 @@
-use crate::schemes::lib_basic as basic;
-use crate::schemes::lib_elgamal as elgamal;
-use crate::schemes::lib_elgamal::ModeratorPublicKey;
+use crate::schemes::lib_emf as emf;
+use crate::schemes::lib_emf::ModeratorPublicKey;
+use crate::schemes::lib_lite as lite;
 use crate::toolbox::lib_common::*;
-use crate::toolbox::lib_elgamal_enc as elgamal_enc;
+use crate::toolbox::lib_elgamal as elgamal;
 use crate::toolbox::lib_mac_ggm as mac_ggm;
+use curve25519_dalek::Scalar;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use ed25519_dalek::Signature;
 use rand::distributions::{Alphanumeric, DistString};
 
 pub const MSG_SIZE_SCALE: [usize; 7] = [100, 500, 1_000, 5_000, 10_000, 50_000, 100_000];
 
-// Basic Scheme Bench Helpers
+// Lite Scheme Bench Helpers
 
 // Initialize Moderator and Client Only
-pub fn test_basic_init_moderator_client() -> (basic::Moderator, basic::Client) {
-    let moderator = basic::Moderator::new();
-    let client = basic::Client::new();
+pub fn test_lite_init_moderator_client() -> (lite::Moderator, lite::Client) {
+    let moderator = lite::Moderator::new();
+    let client = lite::Client::new();
 
     (moderator, client)
 }
 
 // Set Up Client with Session Keys
-pub fn test_basic_init_client_with_keys(
+pub fn test_lite_init_client_with_keys(
     t_expiry: u64,
-) -> (basic::Client, FrankingKey, FrankingPublicKey) {
-    let moderator = basic::Moderator::new();
-    let client = basic::Client::new();
+) -> (lite::Client, FrankingKey, Scalar, PublicFrankingKey) {
+    let moderator = lite::Moderator::new();
+    let client = lite::Client::new();
 
-    let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
-    let decompressed_k_pub = (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap());
+    let (k_f, r, k_pub, _sig) = moderator.issue_cert(&client.id, t_expiry);
+    let decompressed_k_pub = k_pub.decompress().unwrap();
 
-    (client, k_f, decompressed_k_pub)
+    (client, k_f, r, decompressed_k_pub)
 }
 
 // Set Up Moderator, Sender, and Receiver and Session Keys
-pub fn test_basic_init_full_session_data(
+pub fn test_lite_init_full_session_data(
     t_expiry: u64,
 ) -> (
-    basic::Moderator,
-    basic::Client,
-    basic::Client,
+    lite::Moderator,
+    lite::Client,
+    lite::Client,
     FrankingKey,
+    Scalar,
     SessionContext,
     Signature,
 ) {
-    let moderator = basic::Moderator::new(); // KeyGenMod
-    let sender = basic::Client::new(); // KeyGenUser
-    let receiver = basic::Client::new();
+    let moderator = lite::Moderator::new(); // KeyGenMod
+    let sender = lite::Client::new(); // KeyGenUser
+    let receiver = lite::Client::new();
 
     // Register Sender for Keys/Sig
-    let (k_f, k_pub, sig) = moderator.register_user(&sender.id, t_expiry);
+    let (k_f, r, k_pub, sig) = moderator.issue_cert(&sender.id, t_expiry);
 
     let ctx = SessionContext {
         id: sender.id,
-        k_pub: (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap()),
+        k_pub: k_pub.decompress().unwrap(),
         t_expiry,
     };
 
-    (moderator, sender, receiver, k_f, ctx, sig)
+    (moderator, sender, receiver, k_f, r, ctx, sig)
 }
 
 // Initialize Message of Given Size
@@ -76,9 +78,9 @@ pub fn test_init_messages() -> Vec<String> {
 }
 
 // Initialize Messages of Varying Sizes with Tags
-pub fn test_basic_init_messages_with_tags(
+pub fn test_lite_init_messages_with_tags(
     k_f: &FrankingKey,
-    client: &basic::Client,
+    client: &lite::Client,
     t_msg: u64,
 ) -> (Vec<String>, Vec<CompressedRistretto>) {
     let ms = test_init_messages();
@@ -86,20 +88,21 @@ pub fn test_basic_init_messages_with_tags(
     // Generate Tags for Each Message
     let mut tags: Vec<CompressedRistretto> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
-        tags.push(mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg));
+        tags.push(mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg).0);
     }
 
     (ms, tags)
 }
 
 // Initialize Messages of Varying Sizes with Franking Data
-pub fn test_basic_init_messages_with_franking_data(
-    sender: &basic::Client,
+pub fn test_lite_init_messages_with_franking_data(
+    sender: &lite::Client,
     pk_r: &ClientPublicKey,
     k_f: &FrankingKey,
-    k_pub: &FrankingPublicKey,
+    r: &Scalar,
+    k_pub: &PublicFrankingKey,
     t_msg: u64,
-) -> (Vec<String>, Vec<basic::BasicFrankingData>) {
+) -> (Vec<String>, Vec<lite::LiteFrankingData>) {
     let ms = test_init_messages();
 
     let ctx = SessionContext {
@@ -109,91 +112,93 @@ pub fn test_basic_init_messages_with_franking_data(
     };
 
     // Generate Franking Data for Each Message
-    let mut fds: Vec<basic::BasicFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut fds: Vec<lite::LiteFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
-        fds.push(sender.frank(pk_r, k_f, m.as_bytes(), t_msg, &ctx));
+        fds.push(sender.frank(pk_r, k_f, r, m.as_bytes(), t_msg, &ctx));
     }
 
     (ms, fds)
 }
 
-// ElGamal Scheme Bench Helpers
+// EMF Scheme Bench Helpers
 
 // Initialize Moderator and Client Only
-pub fn test_elgamal_init_moderator_client() -> (elgamal::Moderator, elgamal::Client) {
-    let moderator = elgamal::Moderator::new();
-    let client = elgamal::Client::new();
+pub fn test_emf_init_moderator_client() -> (emf::Moderator, emf::Client) {
+    let moderator = emf::Moderator::new();
+    let client = emf::Client::new();
 
     (moderator, client)
 }
 
 // Set Up Client with Session Keys
-pub fn test_elgamal_init_client_with_keys(
+pub fn test_emf_init_client_with_keys(
     t_expiry: u64,
-) -> (elgamal::Client, FrankingKey, FrankingPublicKey) {
-    let moderator = elgamal::Moderator::new();
-    let client = elgamal::Client::new();
+) -> (emf::Client, FrankingKey, Scalar, PublicFrankingKey) {
+    let moderator = emf::Moderator::new();
+    let client = emf::Client::new();
 
-    let (k_f, k_pub, _sig) = moderator.register_user(&client.id, t_expiry);
-    let decompressed_k_pub = (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap());
+    let (k_f, r, k_pub, _sig) = moderator.issue_cert(&client.id, t_expiry);
+    let decompressed_k_pub = k_pub.decompress().unwrap();
 
-    (client, k_f, decompressed_k_pub)
+    (client, k_f, r, decompressed_k_pub)
 }
 
 // Set Up Moderator, Sender, and Receiver and Session Keys
-pub fn test_elgamal_init_full_session_data(
+pub fn test_emf_init_full_session_data(
     t_expiry: u64,
 ) -> (
-    elgamal::Moderator,
-    elgamal::Client,
-    elgamal::Client,
+    emf::Moderator,
+    emf::Client,
+    emf::Client,
     FrankingKey,
+    Scalar,
     SessionContext,
     Signature,
 ) {
-    let moderator = elgamal::Moderator::new(); // KeyGenMod
-    let sender = elgamal::Client::new(); // KeyGenUser
-    let receiver = elgamal::Client::new();
+    let moderator = emf::Moderator::new(); // KeyGenMod
+    let sender = emf::Client::new(); // KeyGenUser
+    let receiver = emf::Client::new();
 
     // Register Sender for Keys/Sig
-    let (k_f, k_pub, sig) = moderator.register_user(&sender.id, t_expiry);
+    let (k_f, r, k_pub, sig) = moderator.issue_cert(&sender.id, t_expiry);
 
     let ctx = SessionContext {
         id: sender.id,
-        k_pub: (k_pub.0.decompress().unwrap(), k_pub.1.decompress().unwrap()),
+        k_pub: k_pub.decompress().unwrap(),
         t_expiry,
     };
 
-    (moderator, sender, receiver, k_f, ctx, sig)
+    (moderator, sender, receiver, k_f, r, ctx, sig)
 }
 
 // Initialize Messages of Varying Sizes with Tags
-pub fn test_elgamal_init_messages_with_tags(
+pub fn test_emf_init_messages_with_tags(
     k_f: &FrankingKey,
-    client: &elgamal::Client,
+    client: &emf::Client,
     t_msg: u64,
-) -> (Vec<String>, Vec<elgamal_enc::ElGamalCiphertext>) {
+) -> (Vec<String>, Vec<elgamal::ElGamalCiphertext>) {
     let ms = test_init_messages();
 
     // Generate Tags for Each Message
-    let mut tags: Vec<elgamal_enc::ElGamalCiphertext> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut tags: Vec<elgamal::ElGamalCiphertext> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
-        let tag = mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg);
-        tags.push(elgamal_enc::encrypt(&client.pk, &tag).0);
+        let (tag, _h_m) = mac_ggm::tag(k_f, m.as_bytes(), &client.id, t_msg);
+        tags.push(elgamal::encrypt(&client.pk, &tag).0);
     }
 
     (ms, tags)
 }
 
 // Initialize Messages of Varying Sizes with Franking Data
-pub fn test_elgamal_init_messages_with_franking_data(
-    sender: &elgamal::Client,
+pub fn test_emf_init_messages_with_franking_data(
+    sender: &emf::Client,
     pk_m: &ModeratorPublicKey,
     pk_r: &ClientPublicKey,
     k_f: &FrankingKey,
-    k_pub: &FrankingPublicKey,
+    r: &Scalar,
+    k_pub: &PublicFrankingKey,
     t_msg: u64,
-) -> (Vec<String>, Vec<elgamal::ElGamalFrankingData>) {
+) -> (Vec<String>, Vec<emf::EMFFrankingData>) {
     let ms = test_init_messages();
 
     let ctx = SessionContext {
@@ -203,9 +208,9 @@ pub fn test_elgamal_init_messages_with_franking_data(
     };
 
     // Generate Franking Data for Each Message
-    let mut fds: Vec<elgamal::ElGamalFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
+    let mut fds: Vec<emf::EMFFrankingData> = Vec::with_capacity(MSG_SIZE_SCALE.len());
     for m in &ms {
-        fds.push(sender.frank(pk_m, pk_r, k_f, m.as_bytes(), t_msg, &ctx));
+        fds.push(sender.frank(pk_m, pk_r, k_f, r, m.as_bytes(), t_msg, &ctx));
     }
 
     (ms, fds)
