@@ -14,6 +14,16 @@ pub fn keygen() -> PRFKey {
     key
 }
 
+// PRF
+/// Evaluates the PRF on input (id, t_exp) using key k_prf.
+///
+/// # Arguments
+/// * `key` - PRF Key
+/// * `id` - User Identifier
+/// * `t_exp` - Expiry Time
+///
+/// # Returns
+/// * `Scalar` - Output of the PRF as a Scalar
 pub fn prf(key: &PRFKey, id: &ClientId, t_exp: u64) -> Scalar {
     let mut hasher = Sha256::new();
 
