@@ -11,7 +11,8 @@ use rand::rngs::OsRng;
 use sha2::Sha512;
 use signature::{Signer, Verifier};
 
-use crate::toolbox::lib_mac_ggm as mac;
+use crate::toolbox::lib_prf as prf;
+use crate::toolbox::{lib_mac_ggm as mac, lib_prf::PRFKey};
 
 // Fixed Length for Registration Serialization
 /// id (32) + g0 (32) + g1 (32) + t_expiry (8)
@@ -170,7 +171,8 @@ pub fn generate_user_id() -> ClientId {
 /// Issues a certificate to a user from the moderator.
 ///
 /// # Arguments
-/// * `sk_m` - Moderator Secret Key
+/// * `k_prf` - PRF Key
+/// * `signing_key` - Moderator Signing Key
 /// * `id` - User Identifier
 /// * `t_expiry` - Signature Expiry Time
 ///
@@ -180,7 +182,8 @@ pub fn generate_user_id() -> ClientId {
 /// * `compressed_k_pub` - CompressedPublicFrankingKey for communication
 /// * `sig` - Moderator Signature on User Registration
 pub fn issue_cert(
-    sk_m: &SigningKey,
+    k_prf: &PRFKey,
+    signing_key: &SigningKey,
     id: &ClientId,
     t_expiry: u64,
 ) -> (FrankingKey, Scalar, CompressedPublicFrankingKey, Signature) {
@@ -188,7 +191,7 @@ pub fn issue_cert(
     let k_f = mac::keygen();
 
     // Public Key Generation (g^x0, g^x1)
-    let r = Scalar::random(&mut OsRng); // Random scalar for Pedersen commitment
+    let r = prf::prf(k_prf, id, t_expiry);
     let k_pub = compute_public_key(&k_f, &r);
 
     // Construct session context for serialization
@@ -202,7 +205,7 @@ pub fn issue_cert(
     let msg: [u8; REGISTRATION_SERIALIZATION_LEN] = serialize_registration(&ctx);
 
     // Signature over registration data
-    let sig = sk_m.sign(&msg);
+    let sig = signing_key.sign(&msg);
 
     let compressed_k_pub = k_pub.compress();
     (k_f, r, compressed_k_pub, sig)

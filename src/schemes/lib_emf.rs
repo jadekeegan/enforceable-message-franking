@@ -3,6 +3,8 @@ use crate::toolbox::lib_elgamal as elgamal;
 use crate::toolbox::lib_elgamal::{EMFPublicKey, EMFSecretKey, ElGamalCiphertext};
 use crate::toolbox::lib_emf_zkp::*;
 use crate::toolbox::lib_mac_ggm as mac;
+use crate::toolbox::lib_prf as prf;
+use crate::toolbox::lib_prf::PRFKey;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::Signature;
@@ -12,6 +14,7 @@ use std::io::Error;
 
 // Type Definitions
 pub struct ModeratorSecretKey {
+    k_prf: PRFKey,
     sk_sig: SigningKey,
     sk_dec: EMFSecretKey,
 }
@@ -40,11 +43,16 @@ pub struct EMFFrankingData {
 /// * `ModeratorSecretKey` - Moderator Signing and Elgamal Decryption Keys
 /// * `ModeratorPublicKey` - Moderator Verifying Key and Elgamal Encryption Key
 pub fn moderator_keygen() -> (ModeratorSecretKey, ModeratorPublicKey) {
+    let k_prf = prf::keygen();
     let (sk_sig, pk_sig) = moderator_sig_keygen();
     let (sk_dec, pk_enc) = elgamal::keygen();
 
     (
-        ModeratorSecretKey { sk_sig, sk_dec },
+        ModeratorSecretKey {
+            k_prf,
+            sk_sig,
+            sk_dec,
+        },
         ModeratorPublicKey { pk_sig, pk_enc },
     )
 }
@@ -82,7 +90,7 @@ impl Moderator {
         id: &ClientId,
         t_expiry: u64,
     ) -> (FrankingKey, Scalar, CompressedPublicFrankingKey, Signature) {
-        issue_cert(&self.sk.sk_sig, id, t_expiry)
+        issue_cert(&self.sk.k_prf, &self.sk.sk_sig, id, t_expiry)
     }
 
     // Moderate Function

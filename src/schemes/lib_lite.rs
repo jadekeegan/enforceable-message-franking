@@ -1,6 +1,8 @@
 use crate::toolbox::lib_common::*;
 use crate::toolbox::lib_lite_zkp::*;
 use crate::toolbox::lib_mac_ggm as mac;
+use crate::toolbox::lib_prf as prf;
+use crate::toolbox::lib_prf::PRFKey;
 use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::Signature;
@@ -16,6 +18,12 @@ pub struct LiteFrankingData {
     pub pi: MacOrDlogZKProof,         // ZK Proof of Knowledge of MAC Tag
 }
 
+// Type Definitions
+pub struct ModeratorSecretKey {
+    k_prf: PRFKey,
+    sk_sig: SigningKey,
+}
+
 // Helper Functions
 
 // Moderator Key Generation
@@ -27,14 +35,22 @@ pub struct LiteFrankingData {
 /// # Returns
 /// * `SigningKey` - Moderator Signing Key
 /// * `VerifyingKey` - Moderator Verifying Key
-pub fn moderator_keygen() -> (SigningKey, VerifyingKey) {
-    moderator_sig_keygen()
+pub fn moderator_keygen() -> (VerifyingKey, ModeratorSecretKey) {
+    let k_prf = prf::keygen();
+    let (signing_key, verifying_key) = moderator_sig_keygen();
+
+    let secret_key = ModeratorSecretKey {
+        k_prf,
+        sk_sig: signing_key,
+    };
+
+    (verifying_key, secret_key)
 }
 
 // Moderator Properties
 pub struct Moderator {
-    pub pk: VerifyingKey, // Moderator Public Key
-    sk: SigningKey,       // Moderator Secret Key
+    pub pk: VerifyingKey,   // Moderator Public Key
+    sk: ModeratorSecretKey, // Moderator Secret Key
 }
 
 // Moderator Implementation
@@ -42,11 +58,11 @@ pub struct Moderator {
 impl Moderator {
     // KeyGenMod(1^lambda)
     pub fn new() -> Self {
-        let (signing_key, verifying_key) = moderator_keygen();
+        let (verifying_key, secret_key) = moderator_keygen();
 
         Moderator {
             pk: verifying_key,
-            sk: signing_key,
+            sk: secret_key,
         }
     }
 
@@ -57,7 +73,7 @@ impl Moderator {
     /// * `sk_M` - Moderator Secret Key
     /// * `id` - User Identifier
     /// * `t_expiry` - Signature Expiry Time
-    ///
+    /// *
     /// # Returns
     /// * `k_f` - Franking Key
     /// * `r` - randomness for Pedersen commitment
@@ -68,7 +84,7 @@ impl Moderator {
         id: &ClientId,
         t_expiry: u64,
     ) -> (FrankingKey, Scalar, CompressedPublicFrankingKey, Signature) {
-        issue_cert(&self.sk, id, t_expiry)
+        issue_cert(&self.sk.k_prf, &self.sk.sk_sig, id, t_expiry)
     }
 
     // Moderate Function
