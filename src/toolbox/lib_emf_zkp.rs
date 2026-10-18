@@ -9,9 +9,9 @@ use sha2::{Digest, Sha512_256};
 // ZK Proof Structure
 pub struct MacOrDlogZKProof {
     // Commitments
-    pub t_frank: CompressedRistretto, // g0^r0 * g1^r1 * H^r
-    pub t_c1: CompressedRistretto,    // g^r2
-    pub t_c2: CompressedRistretto,    // pk_enc^r2 * g^(r0 + r1*h)
+    pub t_frank: CompressedRistretto, // g0^r0 * g1^r1 * H^r_pedersen
+    pub t_c1: CompressedRistretto,    // g^r_enc_proof
+    pub t_c2: CompressedRistretto,    // pk_enc^r_enc_proof * g^(r0 + r1*h)
     pub t_dlog: CompressedRistretto,  // Dlog commitment
 
     // Challenges (split))
@@ -21,7 +21,7 @@ pub struct MacOrDlogZKProof {
     // Responses
     pub z0: Scalar,      // r0 + c_frank * x0
     pub z1: Scalar,      // r1 + c_frank * x1
-    pub z_frank: Scalar, // r2 + c_frank * r (for Pedersen commitment)
+    pub z_frank: Scalar, // r_pedersen + c_frank * r
     pub z_enc: Scalar,   // ElGamal encryption response
     pub z_dlog: Scalar,  // Dlog response
 }
@@ -58,17 +58,18 @@ pub fn zk_mac_dlog_prove(
     // Unpack franking key
     let (x0, x1) = k_f;
 
-    // Generate random scalars r0, r1, r2
+    // Generate independent randomness for the two proof relations.
     let r0 = Scalar::random(&mut rng);
     let r1 = Scalar::random(&mut rng);
-    let r2 = Scalar::random(&mut rng);
+    let r_pedersen = Scalar::random(&mut rng);
+    let r_enc_proof = Scalar::random(&mut rng);
 
     // Compute commitment for franking key
-    let t_frank = compute_pedersen_multicomm(&r0, &r1, &r2).compress(); // g0^r0 * g1^r1 * H^r2
+    let t_frank = compute_pedersen_multicomm(&r0, &r1, &r_pedersen).compress(); // g0^r0 * g1^r1 * H^r_pedersen
 
     // Compute commitment for ElGamal encryption of MAC tag
-    let t_c1 = RistrettoPoint::mul_base(&r2).compress(); // g^r2
-    let t_c2 = (pk_enc * r2 + RistrettoPoint::mul_base(&(r0 + r1 * h_m))).compress(); // pk_enc^r2 * g^(r0 + r1*h)
+    let t_c1 = RistrettoPoint::mul_base(&r_enc_proof).compress(); // g^r_enc_proof
+    let t_c2 = (pk_enc * r_enc_proof + RistrettoPoint::mul_base(&(r0 + r1 * h_m))).compress(); // pk_enc^r_enc_proof * g^(r0 + r1*h)
 
     // Simulate DLog proof
     let c_dlog = Scalar::random(&mut rng);
@@ -99,8 +100,8 @@ pub fn zk_mac_dlog_prove(
     // Compute responses
     let z0 = r0 + c_frank * x0;
     let z1 = r1 + c_frank * x1;
-    let z_frank = r2 + c_frank * r; // Response for ElGamal encryption randomness
-    let z_enc = r2 + c_frank * r_enc;
+    let z_frank = r_pedersen + c_frank * r; // Response for Pedersen commitment randomness
+    let z_enc = r_enc_proof + c_frank * r_enc; // Response for ElGamal encryption randomness
 
     MacOrDlogZKProof {
         t_frank,
@@ -291,6 +292,27 @@ mod test {
 
         let is_valid = zk_mac_dlog_verify(&r_point, &pk_enc, &enc_tag, m, t_msg, &ctx, &pi);
         assert!(is_valid);
+    }
+
+    #[test]
+    fn test_proof_randomness_reuse_attack_fails() {
+        let (k_f, r, pk_enc, r_point, m, t_msg, ctx, h_m) = test_params();
+        let (tag, _h_m) = tag(&k_f, m, &ctx.id, t_msg);
+        let (r_enc, enc_tag) = test_enc_tag(&k_f, &pk_enc, m, t_msg, &ctx);
+        let pi = zk_mac_dlog_prove(
+            &r_point, &k_f, &r, &r_enc, &pk_enc, &enc_tag, m, &h_m, t_msg, &ctx,
+        );
+
+        assert!(zk_mac_dlog_verify(
+            &r_point, &pk_enc, &enc_tag, m, t_msg, &ctx, &pi
+        ));
+        assert_ne!(pi.c_frank, Scalar::from(0u64));
+
+        // This is the recovery equation enabled by the old shared r2.
+        let recovered_r_enc = r + (pi.z_enc - pi.z_frank) * pi.c_frank.invert();
+        let recovered_tag = (enc_tag.1.decompress().unwrap() - recovered_r_enc * pk_enc).compress();
+
+        assert_ne!(recovered_tag, tag);
     }
 
     #[test]
