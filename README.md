@@ -86,9 +86,9 @@ Criterion also generates HTML reports of all benchmarks. To view these, you run 
 
 ### Benchmark Results:
 
-Below are our results on an 11th Gen Intel i7 processor @ 3.6 GHz in microseconds.
+Below are our results on an 11th Gen Intel i7 processor @ 3.6 GHz in microseconds for a 100 byte message.
 
 | Scheme   | Frank  | Verify | Moderate |
 | -------- | ------ | ------ | -------- |
-| EMF-lite | 168.62 | 191.83 | 11.89    |
-| EMF      | 253.09 | 249.12 | 42.90    |
+| EMF-lite | 167.9 | 191.9 | 11.9    |
+| EMF      | 244.5 | 250.0 | 42.4    |
