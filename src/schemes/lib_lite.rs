@@ -4,6 +4,7 @@ use crate::toolbox::lib_mac_ggm as mac;
 use crate::toolbox::lib_prf as prf;
 use crate::toolbox::lib_prf::PRFKey;
 use curve25519_dalek::ristretto::CompressedRistretto;
+use curve25519_dalek::traits::IsIdentity;
 use curve25519_dalek::{RistrettoPoint, Scalar};
 use ed25519_dalek::Signature;
 use ed25519_dalek::{SigningKey, VerifyingKey};
@@ -251,7 +252,16 @@ impl Client {
         } = ad;
 
         // Decompress points for computation
+        let decompressed_r = r_point.decompress().unwrap();
         let decompressed_e_r = e_r.decompress().unwrap();
+
+        // Reject R/E_R identity elements
+        if decompressed_r.is_identity() || decompressed_e_r.is_identity() {
+            return Err(Error::new(
+                std::io::ErrorKind::InvalidData,
+                "R and E_R must not be the identity element.",
+            ));
+        }
 
         let recomputed_r = (self.sk * decompressed_e_r).compress();
         let is_r_valid = recomputed_r == *r_point;
