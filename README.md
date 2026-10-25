@@ -29,9 +29,16 @@ The most straightforward method for producing results for the schemes is by exec
 
 The commands listed in `run.sh` can be run individually with some parameterization. Read further for more information.
 
+## Prerequisites
+
+- [Rust](https://www.rust-lang.org/tools/install) 1.85 or newer, including Cargo.
+- Python 3, required by `scripts/run.sh` to generate benchmark tables.
+
+The minimum supported Rust version is 1.85.0 to support Rust 2024. Dependencies are resolved by Cargo from `Cargo.toml`.
+
 ## Running Tests & Viewing Communication Costs
 
-We implement basic unit tests for correctness, which can be found in their corresponding files. Run `cargo test` to see the results of these tests. These tests are **not** comprehensive.
+We implement basic unit tests for correctness, which can be found in their corresponding files. Run `cargo test` to see the results of these tests. These tests are **not** intended to be comprehensive.
 
 To run the schemes, run the `main.rs` file using `cargo run --` with the appropriate parameters.
 
@@ -60,13 +67,13 @@ Run `cargo bench` to run all benchmarks.
 
 Run `cargo bench -- {group}` to run benchmarks for a particular group of benchmarks. The benchmarks are organized in groups as follows:
 
-- `lite`: prefixes all functions specific to the EMF-lite scheme
-- `emf`: prefixes all functions specific to the EMF scheme
-- `elgamal_enc`: prefixes all functions used in the El Gamal encryption primitive
-- `mac_ggm`: prefixes all functions used in the Mac GGM primitive
-- `common`: prefixes all scheme agnostic utility functions
+- `lite`: all benchmarks specific to the EMF-lite scheme
+- `emf`: all benchmarks specific to the EMF scheme
+- `elgamal`: all benchmarks used in the El Gamal encryption primitive
+- `mac_ggm`: all benchmarks used in the Mac GGM primitive
+- `common`: all benchmarks for scheme-agnostic utility functions
 
-Run `cargo bench --bench {scheme}_{method}` to run benchmarks for a specific method. For example, `cargo bench --bench lite_accept_session` would run the benchmark for the EMF-lite scheme's `accept_session` method.
+Run `cargo bench --bench {scheme}_{method}` to run benchmarks for a specific method, where scheme is `lite` for EMF-lite and `emf` for EMF. For example, `cargo bench --bench lite_verify` would run the benchmark for the EMF-lite scheme's `verify` method.
 
 Here are a few other useful command line prompt formats:
 
@@ -88,7 +95,7 @@ Criterion also generates HTML reports of all benchmarks. To view these, you run 
 
 Below are our results on an 11th Gen Intel i7 processor @ 3.6 GHz in microseconds for a 100 byte message.
 
-| Scheme   | Frank  | Verify | Moderate |
-| -------- | ------ | ------ | -------- |
-| EMF-lite | 167.9 | 191.9 | 11.9    |
-| EMF      | 244.5 | 250.0 | 42.4    |
+| Scheme   | Frank | Verify | Moderate |
+| -------- | ----- | ------ | -------- |
+| EMF-lite | 167.9 | 191.9  | 11.9     |
+| EMF      | 244.5 | 250.0  | 42.4     |
