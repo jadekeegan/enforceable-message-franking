@@ -89,7 +89,18 @@ cargo bench --bench lite_verify --bench emf_verify -- "size 100"
 cargo bench --bench lite_frank --bench lite_verify --bench lite_moderate
 ```
 
-Criterion also generates HTML reports of all benchmarks. To view these, you run `start target/criterion/report/index.html` in the root directory.
+Criterion also generates HTML reports of all benchmarks. From the repository root, open the report with the command for your operating system:
+
+```bash
+# macOS
+open target/criterion/report/index.html
+
+# Linux
+xdg-open target/criterion/report/index.html
+
+# Windows
+start target/criterion/report/index.html
+```
 
 ### Benchmark Results:
 
