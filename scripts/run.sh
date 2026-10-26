@@ -33,14 +33,14 @@ echo "Generating Benchmark Tables!"
 echo ""
 python3 scripts/generate_table.py --scheme all
 
+echo ""
+echo "Running Schemes and Reporting Communication Costs!"
+echo ""
+cargo run -- --msg-size 100 --lite --emf --print-costs
+
 if [ -n "$amf_repository" ]; then
 	echo ""
 	echo "Running Optional AMF Comparison!"
 	echo ""
 	python3 scripts/run_comparison.py --amf "$amf_repository"
 fi
-
-echo ""
-echo "Running Schemes and Reporting Communication Costs!"
-echo ""
-cargo run -- --msg-size 100 --lite --emf --print-costs
