@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 if [ "$1" = "--amf" ]; then
 	if [ -z "$2" ]; then
 		echo "Usage: $0 [--amf PATH_TO_AMF_REPOSITORY]" >&2
