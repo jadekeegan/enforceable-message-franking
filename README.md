@@ -50,11 +50,15 @@ Options:
       --emf
       --msg-size <MSG_SIZE>  [default: 100]
       --print-costs
+      --expired
   -h, --help                 Print help
   -V, --version              Print version
 
 # Run both EMF-lite and EMF with a 1000B message and print communication costs.
 > cargo run -- --msg-size 1000 --lite --emf --print-costs
+
+# Run expired credential test for both schemes to confirm revocation mechanism.
+> cargo run -- --msg-size 100 --lite --emf --expired
 ```
 
 ## Running Benchmarks

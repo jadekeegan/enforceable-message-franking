@@ -34,17 +34,28 @@ struct Args {
 
     #[arg(long, default_value_t = false)]
     print_costs: bool,
+
+    #[arg(long, default_value_t = false)]
+    expired: bool,
 }
 
 fn main() {
     let args = Args::parse();
 
     if args.lite {
-        test_lite(args.msg_size, args.print_costs);
+        if args.expired {
+            test_expired_lite(args.msg_size);
+        } else {
+            test_lite(args.msg_size, args.print_costs);
+        }
     }
 
     if args.emf {
-        test_emf(args.msg_size, args.print_costs);
+        if args.expired {
+            test_expired_emf(args.msg_size);
+        } else {
+            test_emf(args.msg_size, args.print_costs);
+        }
     }
 }
 
@@ -337,5 +348,103 @@ pub fn test_emf(msg_size: usize, print_costs: bool) {
         msg_size
     );
     println!();
+    println!();
+}
+
+// Test expired Lite credential
+/// Demonstrates that the lite scheme rejects franking data after credential expiry.
+pub fn test_expired_lite(msg_size: usize) {
+    println!(
+        "======================== Started Testing Expired Lite Credential with Message of Size {} ====================",
+        msg_size
+    );
+
+    let t_expiry = 0;
+    let t_msg = 1;
+    let (moderator, sender, receiver, k_f, r, ctx, _sig) =
+        test_lite_init_full_session_data(t_expiry);
+    let message = test_init_message(msg_size);
+    let franking_data = sender.frank(&receiver.pk, &k_f, &r, message.as_bytes(), t_msg, &ctx);
+
+    println!("===> Receiver Verifying Expired Franking Data");
+    let verification = receiver.verify(&franking_data, message.as_bytes(), t_msg, &ctx);
+    status!(
+        verification.is_err(),
+        "Receiver rejected expired franking data as expected.",
+        "Receiver incorrectly accepted expired franking data."
+    );
+
+    println!("===> Moderator Verifying Expired Franking Data");
+    let moderation = moderator.moderate(&k_f, message.as_bytes(), t_msg, &ctx, &franking_data.tag);
+    status!(
+        !moderation,
+        "Moderator rejected expired franking data as expected.",
+        "Moderator incorrectly accepted expired franking data."
+    );
+
+    println!();
+    println!(
+        "======================== Completed Testing Expired Lite Credential with Message of Size {} ====================",
+        msg_size
+    );
+    println!();
+}
+
+// Test expired EMF credential
+/// Demonstrates that the EMF scheme rejects franking data after credential expiry.
+pub fn test_expired_emf(msg_size: usize) {
+    println!(
+        "======================== Started Testing Expired EMF Credential with Message of Size {} ====================",
+        msg_size
+    );
+
+    let t_expiry = 0;
+    let t_msg = 1;
+    let (moderator, sender, receiver, k_f, r, ctx, _sig) =
+        test_emf_init_full_session_data(t_expiry);
+    let message = test_init_message(msg_size);
+    let franking_data = sender.frank(
+        &moderator.pk,
+        &receiver.pk,
+        &k_f,
+        &r,
+        message.as_bytes(),
+        t_msg,
+        &ctx,
+    );
+
+    println!("===> Receiver Verifying Expired Franking Data");
+    let verification = receiver.verify(
+        &moderator.pk,
+        &franking_data,
+        message.as_bytes(),
+        t_msg,
+        &ctx,
+    );
+    status!(
+        verification.is_err(),
+        "Receiver rejected expired franking data as expected.",
+        "Receiver incorrectly accepted expired franking data."
+    );
+
+    println!("===> Moderator Verifying Expired Franking Data");
+    let moderation = moderator.moderate(
+        &k_f,
+        message.as_bytes(),
+        t_msg,
+        &ctx,
+        &franking_data.enc_tag,
+    );
+    status!(
+        !moderation,
+        "Moderator rejected expired franking data as expected.",
+        "Moderator incorrectly accepted expired franking data."
+    );
+
+    println!();
+    println!(
+        "======================== Completed Testing Expired EMF Credential with Message of Size {} ====================",
+        msg_size
+    );
     println!();
 }
