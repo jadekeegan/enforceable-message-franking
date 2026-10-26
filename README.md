@@ -29,7 +29,7 @@ The most straightforward method for producing results for the schemes is by exec
 
 The commands listed in `run.sh` can be run individually with some parameterization. Read further for more information.
 
-## Prerequisites
+## Requirements
 
 - [Rust](https://www.rust-lang.org/tools/install) 1.85 or newer, including Cargo.
 - Python 3, required by `scripts/run.sh` to generate benchmark tables.
@@ -110,3 +110,8 @@ Below are our results on an 11th Gen Intel i7 processor @ 3.6 GHz in microsecond
 | -------- | ----- | ------ | -------- |
 | EMF-lite | 167.9 | 191.9  | 11.9     |
 | EMF      | 244.5 | 250.0  | 42.4     |
+
+Benchmark results may vary across hardware and software environments due cryptographic implementation, particularly in the case of SHA-256 acceleration.
+
+### Comparison to Asymmetric Message Franking
+If you would like to compare the benchmarks of Enforceable Message Franking to Asymmetric Message Franking, please refer to the following Rust implementation of AMF: https://github.com/jadekeegan/amaze-compressed.
