@@ -1,5 +1,16 @@
 #!/bin/bash
 
+if [ "$1" = "--amf" ]; then
+	if [ -z "$2" ]; then
+		echo "Usage: $0 [--amf PATH_TO_AMF_REPOSITORY]" >&2
+		exit 1
+	fi
+	amf_repository="$2"
+elif [ -n "$1" ]; then
+	echo "Usage: $0 [--amf PATH_TO_AMF_REPOSITORY]" >&2
+	exit 1
+fi
+
 cargo clean
 
 echo ""
@@ -21,6 +32,13 @@ echo ""
 echo "Generating Benchmark Tables!"
 echo ""
 python3 scripts/generate_table.py --scheme all
+
+if [ -n "$amf_repository" ]; then
+	echo ""
+	echo "Running Optional AMF Comparison!"
+	echo ""
+	python3 scripts/run_comparison.py --amf "$amf_repository"
+fi
 
 echo ""
 echo "Running Schemes and Reporting Communication Costs!"

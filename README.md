@@ -118,3 +118,11 @@ SHA-256 acceleration discrepancy is particularly relevant to the message size vs
 ### Comparison to Asymmetric Message Franking
 
 If you would like to compare the benchmarks of Enforceable Message Franking to Asymmetric Message Franking, please refer to the following Rust implementation of AMF: https://github.com/jadekeegan/amaze-compressed.
+
+We have included an optional parameter that allows you to run the AMF benchmarks after the EMF and EMF-lite benchmarks. To run the command as written below, you will need both repositories to be in the same parent directory, with the AMF implementation under the name `amaze-compressed`.
+
+```bash
+./scripts/run.sh --amf ../amaze-compressed
+```
+
+The second parameter is simply the path to the repository, so if the AMF repository is under a different name or location, you may adjust the path as needed.
